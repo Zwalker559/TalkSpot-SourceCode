@@ -1,0 +1,105 @@
+
+{
+  "buttons": {
+    "edit": "Modifier",
+    "hide": "Masquer",
+    "show": "Afficher",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "saveChanges": "Enregistrer les modifications",
+    "set": "Définir",
+    "saveAndSet": "Enregistrer et Définir"
+  },
+  "account": {
+    "title": "Informations sur le compte",
+    "description": "Gérez les détails de votre compte.",
+    "avatarLabel": "Photo de profil",
+    "avatarDescription": "Cliquez sur modifier pour changer votre avatar.",
+    "avatarDialogTitle": "Définir une nouvelle photo de profil",
+    "avatarDialogDescription": "Ce sera votre nouvel avatar dans toute l'application.",
+    "displayNameLabel": "Nom d'affichage",
+    "displayNameDialogTitle": "Modifier le nom d'affichage",
+    "displayNameDialogLabel": "Nouveau nom d'affichage",
+    "textingIdLabel": "ID de messagerie",
+    "textingIdDialogTitle": "Modifier l'ID de messagerie",
+    "textingIdDialogDescription": "Vous pouvez personnaliser votre ID de messagerie. Cela ne peut être fait qu'une seule fois.",
+    "textingIdDialogLabel": "Nouvel ID de messagerie",
+    "emailLabel": "Nom d'utilisateur (E-mail)",
+    "passwordLabel": "Mot de passe",
+    "passwordDialogTitle": "Changer le mot de passe",
+    "passwordDialogCurrentLabel": "Mot de passe actuel",
+    "passwordDialogNewLabel": "Nouveau mot de passe"
+  },
+  "personalization": {
+    "title": "Personnalisation",
+    "description": "Personnalisez l'apparence de l'application.",
+    "themeLabel": "Thème",
+    "themeDescription": "Sélectionnez un thème de couleur pour l'interface utilisateur.",
+    "themePlaceholder": "Sélectionner un thème",
+    "languageLabel": "Langue",
+    "languageDescription": "Choisissez votre langue préférée pour la traduction automatique.",
+    "languagePlaceholder": "Sélectionner une langue"
+  },
+  "filters": {
+    "title": "Filtrage du chat",
+    "description": "Masquer automatiquement le contenu des messages entrants.",
+    "linksLabel": "Bloquer les liens",
+    "linksDescription": "Masquer les messages contenant des URL.",
+    "profanityLabel": "Bloquer les grossièretés",
+    "profanityDescription": "Masquer les messages contenant un langage grossier."
+  },
+  "security": {
+    "title": "Question de sécurité",
+    "description": "Cette question peut être utilisée pour récupérer votre compte si vous oubliez votre mot de passe.",
+    "questionLabel": "Votre question",
+    "editDialogTitle": "Modifier la question de sécurité",
+    "setDialogTitle": "Définir la question de sécurité",
+    "dialogQuestionLabel": "Question",
+    "dialogQuestionPlaceholder": "Sélectionnez une question",
+    "dialogQuestionCustom": "Créez la vôtre...",
+    "dialogCustomQuestionLabel": "Personnalisée",
+    "dialogCustomQuestionPlaceholder": "Tapez votre question",
+    "dialogAnswerLabel": "Réponse",
+    "dialogCaseSensitiveLabel": "Sensible à la casse",
+    "dialogPasswordLabel": "Votre mot de passe",
+    "dialogPasswordPlaceholder": "Entrez le mot de passe pour enregistrer"
+  },
+  "toasts": {
+    "successTitle": "Succès",
+    "errorTitle": "Erreur",
+    "genericError": "Une erreur est survenue. Veuillez réessayer.",
+    "incorrectPasswordError": "Mot de passe incorrect.",
+    "providePasswordError": "Veuillez fournir votre mot de passe pour enregistrer.",
+    "displayNameSuccessTitle": "Succès",
+    "displayNameSuccessDescription": "Nom d'affichage mis à jour.",
+    "textingIdSuccessTitle": "Succès",
+    "textingIdSuccessDescription": "ID de messagerie mis à jour.",
+    "textingIdInvalidFormatTitle": "Format invalide",
+    "textingIdInvalidFormatDescription": "L'ID de messagerie doit être au format xxxx-xxxx et contenir 8 caractères alphanumériques.",
+    "textingIdTakenTitle": "ID déjà pris",
+    "textingIdTakenDescription": "Cet ID de messagerie est déjà utilisé. Veuillez en choisir un autre.",
+    "userNotFoundErrorTitle": "Utilisateur non trouvé",
+    "userNotFoundErrorDescription": "Utilisateur non trouvé ou e-mail non vérifié.",
+    "passwordSuccessTitle": "Succès",
+    "passwordSuccessDescription": "Mot de passe mis à jour avec succès.",
+    "passwordErrorDescription": "Le changement de mot de passe a échoué. Veuillez vérifier votre mot de passe actuel.",
+    "securityQuestionSuccessDescription": "Question de sécurité enregistrée.",
+    "securityQuestionErrorTitle": "Erreur",
+    "securityQuestionErrorDescription": "Veuillez remplir la question et la réponse.",
+    "filtersSuccess": "Paramètres de filtre mis à jour.",
+    "filtersError": "Impossible d'enregistrer les paramètres de filtre.",
+    "personalizationSuccess": {
+        "theme": "Thème mis à jour.",
+        "language": "Langue mise à jour."
+    },
+    "personalizationError": {
+        "theme": "Impossible d'enregistrer le thème.",
+        "language": "Impossible d'enregistrer la langue."
+    },
+    "avatarSuccessTitle": "Succès",
+    "avatarSuccessDescription": "Photo de profil mise à jour.",
+    "avatarErrorDescription": "Impossible de mettre à jour la photo de profil.",
+    "fileTooLargeTitle": "Fichier trop volumineux",
+    "fileTooLargeDescription": "Veuillez sélectionner une image de moins de 1 Mo."
+  }
+}

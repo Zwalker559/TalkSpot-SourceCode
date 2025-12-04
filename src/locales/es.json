@@ -1,0 +1,105 @@
+
+{
+  "buttons": {
+    "edit": "Editar",
+    "hide": "Ocultar",
+    "show": "Mostrar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "saveChanges": "Guardar Cambios",
+    "set": "Establecer",
+    "saveAndSet": "Guardar y Establecer"
+  },
+  "account": {
+    "title": "Información de la Cuenta",
+    "description": "Administra los detalles de tu cuenta.",
+    "avatarLabel": "Foto de Perfil",
+    "avatarDescription": "Haz clic en editar para cambiar tu avatar.",
+    "avatarDialogTitle": "Establecer Nueva Foto de Perfil",
+    "avatarDialogDescription": "Este será tu nuevo avatar en toda la aplicación.",
+    "displayNameLabel": "Nombre de Pantalla",
+    "displayNameDialogTitle": "Editar Nombre de Pantalla",
+    "displayNameDialogLabel": "Nuevo Nombre de Pantalla",
+    "textingIdLabel": "ID de Mensajería",
+    "textingIdDialogTitle": "Editar ID de Mensajería",
+    "textingIdDialogDescription": "Puedes personalizar tu ID de mensajería. Esto solo se puede hacer una vez.",
+    "textingIdDialogLabel": "Nuevo ID de Mensajería",
+    "emailLabel": "Usuario (Email)",
+    "passwordLabel": "Contraseña",
+    "passwordDialogTitle": "Cambiar Contraseña",
+    "passwordDialogCurrentLabel": "Contraseña Actual",
+    "passwordDialogNewLabel": "Nueva Contraseña"
+  },
+  "personalization": {
+    "title": "Personalización",
+    "description": "Personaliza la apariencia de la aplicación.",
+    "themeLabel": "Tema",
+    "themeDescription": "Selecciona un tema de color para la interfaz.",
+    "themePlaceholder": "Seleccionar tema",
+    "languageLabel": "Idioma",
+    "languageDescription": "Elige tu idioma preferido para la traducción automática.",
+    "languagePlaceholder": "Seleccionar idioma"
+  },
+  "filters": {
+    "title": "Filtrado de Chat",
+    "description": "Ocultar automáticamente contenido de los mensajes entrantes.",
+    "linksLabel": "Bloquear Enlaces",
+    "linksDescription": "Ocultar mensajes que contengan URLs.",
+    "profanityLabel": "Bloquear Groserías",
+    "profanityDescription": "Ocultar mensajes que contengan lenguaje profano."
+  },
+  "security": {
+    "title": "Pregunta de Seguridad",
+    "description": "Esta pregunta se puede usar para recuperar tu cuenta si olvidas tu contraseña.",
+    "questionLabel": "Tu Pregunta",
+    "editDialogTitle": "Editar Pregunta de Seguridad",
+    "setDialogTitle": "Establecer Pregunta de Seguridad",
+    "dialogQuestionLabel": "Pregunta",
+    "dialogQuestionPlaceholder": "Selecciona una pregunta",
+    "dialogQuestionCustom": "Crear la tuya...",
+    "dialogCustomQuestionLabel": "Personalizada",
+    "dialogCustomQuestionPlaceholder": "Escribe tu pregunta",
+    "dialogAnswerLabel": "Respuesta",
+    "dialogCaseSensitiveLabel": "Sensible a Mayúsculas",
+    "dialogPasswordLabel": "Tu Contraseña",
+    "dialogPasswordPlaceholder": "Introduce la contraseña para guardar"
+  },
+  "toasts": {
+    "successTitle": "Éxito",
+    "errorTitle": "Error",
+    "genericError": "Ocurrió un error. Por favor, inténtalo de nuevo.",
+    "incorrectPasswordError": "Contraseña incorrecta.",
+    "providePasswordError": "Por favor, proporciona tu contraseña para guardar.",
+    "displayNameSuccessTitle": "Éxito",
+    "displayNameSuccessDescription": "Nombre de pantalla actualizado.",
+    "textingIdSuccessTitle": "Éxito",
+    "textingIdSuccessDescription": "ID de mensajería actualizado.",
+    "textingIdInvalidFormatTitle": "Formato Inválido",
+    "textingIdInvalidFormatDescription": "El ID de mensajería debe tener el formato xxxx-xxxx y contener 8 caracteres alfanuméricos.",
+    "textingIdTakenTitle": "ID en uso",
+    "textingIdTakenDescription": "Este ID de mensajería ya está en uso. Por favor, elige otro.",
+    "userNotFoundErrorTitle": "Usuario no encontrado",
+    "userNotFoundErrorDescription": "Usuario no encontrado o correo no verificado.",
+    "passwordSuccessTitle": "Éxito",
+    "passwordSuccessDescription": "Contraseña actualizada correctamente.",
+    "passwordErrorDescription": "Falló el cambio de contraseña. Por favor, verifica tu contraseña actual.",
+    "securityQuestionSuccessDescription": "Pregunta de seguridad guardada.",
+    "securityQuestionErrorTitle": "Error",
+    "securityQuestionErrorDescription": "Por favor, completa la pregunta y la respuesta.",
+    "filtersSuccess": "Configuración de filtros actualizada.",
+    "filtersError": "No se pudo guardar la configuración de filtros.",
+    "personalizationSuccess": {
+        "theme": "Tema actualizado.",
+        "language": "Idioma actualizado."
+    },
+    "personalizationError": {
+        "theme": "No se pudo guardar el tema.",
+        "language": "No se pudo guardar el idioma."
+    },
+    "avatarSuccessTitle": "Éxito",
+    "avatarSuccessDescription": "Foto de perfil actualizada.",
+    "avatarErrorDescription": "No se pudo actualizar la foto de perfil.",
+    "fileTooLargeTitle": "Archivo demasiado grande",
+    "fileTooLargeDescription": "Por favor, selecciona una imagen de menos de 1MB."
+  }
+}

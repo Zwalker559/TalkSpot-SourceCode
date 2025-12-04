@@ -1,0 +1,229 @@
+
+{
+    "entities": {
+        "user": {
+            "title": "User",
+            "description": "A user of the application",
+            "type": "object",
+            "properties": {
+                "uid": {
+                    "type": "string",
+                    "description": "The user's unique ID"
+                },
+                "displayName": {
+                    "type": "string",
+                    "description": "The user's display name"
+                },
+                "email": {
+                    "type": "string",
+                    "description": "The user's email address"
+                },
+                "photoURL": {
+                    "type": "string",
+                    "description": "A Base64 data URI of the user's profile picture."
+                },
+                "textingId": {
+                    "type": "string",
+                    "description": "The user's unique texting ID in xxxx-xxxx format."
+                },
+                "role": {
+                    "type": "string",
+                    "description": "The user's role, e.g., User, Sub-Manager, Lead-Manager",
+                    "enum": ["User", "Sub-Manager", "Lead-Manager"]
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The user's account status",
+                    "enum": ["Active", "Suspended"]
+                },
+                "visibility": {
+                    "type": "string",
+                    "description": "The user's profile visibility in search.",
+                    "enum": ["public", "private"]
+                },
+                "chatFilters": {
+                    "type": "object",
+                    "description": "User preferences for chat content filtration.",
+                    "properties": {
+                        "blockLinks": {
+                            "type": "boolean",
+                            "description": "If true, hides messages containing URLs."
+                        },
+                        "blockProfanity": {
+                            "type": "boolean",
+                            "description": "If true, hides messages containing profanity."
+                        }
+                    }
+                },
+                "personalization": {
+                    "type": "object",
+                    "description": "User preferences for app personalization.",
+                    "properties": {
+                        "theme": {
+                            "type": "string",
+                            "description": "The selected UI theme."
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "The selected language."
+                        }
+                    }
+                }
+            },
+            "required": [
+                "uid",
+                "displayName",
+                "email",
+                "textingId",
+                "visibility"
+            ]
+        },
+        "chatRequest": {
+            "title": "Chat Request",
+            "description": "A request from one user to start a chat with another.",
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "description": "UID of the user sending the request."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "UID of the user receiving the request."
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "accepted", "denied"],
+                    "description": "The current status of the request."
+                }
+            },
+            "required": ["from", "to", "status"]
+        },
+        "conversation": {
+            "title": "Conversation",
+            "description": "Represents a chat session between two or more users.",
+            "type": "object",
+            "properties": {
+                "participants": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of UIDs of the users in the conversation."
+                },
+                "participantDetails": {
+                    "type": "object",
+                    "description": "Map of participant UIDs to their details like name and photo."
+                },
+                "lastMessage": {
+                    "type": "string",
+                    "description": "The text of the last message sent."
+                },
+                "lastMessageTimestamp": {
+                    "$ref": "#/entities/timestamp",
+                    "description": "Timestamp of the last message."
+                },
+                "lastMessageSenderId": {
+                    "type": "string",
+                    "description": "UID of the last message sender."
+                }
+            },
+            "required": ["participants", "participantDetails"]
+        },
+        "message": {
+            "title": "Message",
+            "description": "A single message within a conversation.",
+            "type": "object",
+            "properties": {
+                "senderId": {
+                    "type": "string",
+                    "description": "UID of the message sender."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "The content of the message."
+                },
+                "timestamp": {
+                    "$ref": "#/entities/timestamp",
+                    "description": "When the message was sent."
+                },
+                "mediaUrl": {
+                    "type": "string",
+                    "description": "URL of any media attached to the message."
+                }
+            },
+            "required": ["senderId", "text", "timestamp"]
+        },
+        "passwordRecovery": {
+            "title": "Password Recovery",
+            "description": "Stores user data needed for password recovery.",
+            "type": "object",
+            "properties": {
+                "uid": { "type": "string" },
+                "email": { "type": "string" },
+                "securityQuestion": { "type": "string" },
+                "securityAnswer": { "type": "string" },
+                "isCaseSensitive": { "type": "boolean" }
+            },
+            "required": ["uid", "email"]
+        },
+        "timestamp": {
+            "title": "Timestamp",
+            "description": "A server-generated timestamp.",
+            "type": "object",
+            "properties": {
+                "seconds": { "type": "number" },
+                "nanoseconds": { "type": "number" }
+            }
+        }
+    },
+    "auth": {
+        "providers": [
+            "email",
+            "anonymous",
+            "google.com"
+        ]
+    },
+    "firestore": {
+        "/users/{userId}": {
+            "schema": {
+                "$ref": "#/entities/user"
+            },
+            "description": "User profile information"
+        },
+        "/user_lookups/{userId}": {
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "uid": {"type": "string"},
+                    "displayName": {"type": "string"},
+                    "textingId": {"type": "string"},
+                    "visibility": {"type": "string", "enum": ["public", "private"]}
+                }
+            },
+            "description": "A public collection for looking up users by displayName or textingId."
+        },
+        "/password_recovery/{userId}": {
+            "schema": {
+                "$ref": "#/entities/passwordRecovery"
+            },
+            "description": "Secure information for account recovery."
+        },
+        "/requests/{requestId}": {
+            "schema": {
+                "$ref": "#/entities/chatRequest"
+            },
+            "description": "Chat requests between users."
+        },
+        "/conversations/{conversationId}": {
+            "schema": {
+                "$ref": "#/entities/conversation"
+            },
+            "description": "Metadata for a chat conversation."
+        },
+        "/conversations/{conversationId}/messages/{messageId}": {
+            "schema": {
+                "$ref": "#/entities/message"
+            },
+            "description": "All messages within a specific conversation."
+        }
+    }
+}
