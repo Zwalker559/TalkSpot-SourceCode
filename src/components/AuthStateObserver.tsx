@@ -48,13 +48,13 @@ export function AuthStateObserver({
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setPersonalization(data.personalization || { theme: 'theme-classic', language: 'en' });
+          setPersonalization(data.personalization || { theme: 'theme-classic-l', language: 'en' });
         }
       });
        return () => unsubscribe();
     } else {
         // Reset for logged-out users
-        setPersonalization({ theme: 'theme-classic', language: 'en' });
+        setPersonalization({ theme: 'theme-classic-l', language: 'en' });
     }
   }, [user, firestore]);
 
@@ -65,21 +65,21 @@ export function AuthStateObserver({
     const root = document.documentElement;
     root.className = ''; // Clear all existing theme classes.
 
-    let themeToApply = 'theme-classic';
-    let isDark = true;
+    let themeToApply = 'theme-classic-l';
+    let isDark = false;
 
     if (user) {
         // A user is logged in, use their saved preference
-        themeToApply = personalization.theme || 'theme-classic';
-        if (themeToApply.endsWith('-d') || themeToApply === 'theme-classic') {
+        themeToApply = personalization.theme || 'theme-classic-l';
+        if (themeToApply.endsWith('-d')) {
             isDark = true;
         } else {
             isDark = false;
         }
     } else {
-        // No user is logged in, default to classic dark theme for all public pages.
-        themeToApply = 'theme-classic';
-        isDark = true;
+        // No user is logged in, default to classic light theme for all public pages.
+        themeToApply = 'theme-classic-l';
+        isDark = false;
     }
     
     if (isDark) {
