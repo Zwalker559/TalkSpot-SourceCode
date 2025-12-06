@@ -14,6 +14,10 @@ export default {
         headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
       },
+      backgroundImage: {
+        'gradient-patriotic': 'radial-gradient(circle at 10% 10%, hsla(228, 80%, 50%, 0.15), transparent 30%), radial-gradient(circle at 90% 80%, hsla(0, 80%, 50%, 0.15), transparent 30%)',
+        'gradient-default': 'radial-gradient(circle at 20% 20%, hsl(var(--secondary) / 0.1), transparent 30%), radial-gradient(circle at 80% 70%, hsl(var(--primary) / 0.1), transparent 30%)',
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
