@@ -46,6 +46,8 @@ const themes = [
   { value: 'theme-coral-d', label: 'Coral (D)' },
   { value: 'theme-mint-l', label: 'Mint (L)' },
   { value: 'theme-mint-d', label: 'Mint (D)' },
+  { value: 'theme-kenny-l', label: 'Kenny (L)' },
+  { value: 'theme-kenny-d', label: 'Kenny (D)' },
 ];
 
 const languages = [

@@ -505,6 +505,50 @@
     --ring: 165 65% 45%;
   }
 
+  .theme-kenny-d.dark {
+    --background: 28 34% 15%;
+    --foreground: 30 10% 95%;
+    --card: 28 34% 18%;
+    --card-foreground: 30 10% 95%;
+    --popover: 28 34% 12%;
+    --popover-foreground: 30 10% 95%;
+    --primary: 25 88% 60%;
+    --primary-foreground: 25 88% 10%;
+    --secondary: 28 20% 30%;
+    --secondary-foreground: 30 10% 95%;
+    --muted: 28 20% 22%;
+    --muted-foreground: 30 10% 70%;
+    --accent: 25 88% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 28 20% 25%;
+    --input: 28 20% 25%;
+    --ring: 25 88% 60%;
+  }
+
+  .theme-kenny-l {
+    --background: 35 56% 95%;
+    --foreground: 25 35% 15%;
+    --card: 35 56% 92%;
+    --card-foreground: 25 35% 15%;
+    --popover: 35 56% 90%;
+    --popover-foreground: 25 35% 15%;
+    --primary: 22 85% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 50% 88%;
+    --secondary-foreground: 25 35% 15%;
+    --muted: 35 50% 90%;
+    --muted-foreground: 25 20% 40%;
+    --accent: 22 85% 80%;
+    --accent-foreground: 25 35% 15%;
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 40% 80%;
+    --input: 35 40% 80%;
+    --ring: 22 85% 55%;
+  }
+
 }
 
 @layer base {
@@ -525,5 +569,13 @@
       background-image: radial-gradient(circle at 10% 10%, hsla(228, 80%, 50%, 0.15), transparent 30%),
                         radial-gradient(circle at 90% 80%, hsla(0, 80%, 50%, 0.15), transparent 30%);
       background-attachment: fixed;
+  }
+
+  body.bg-gradient-kenny {
+    background-image: url('https://www.transparenttextures.com/patterns/cardboard-flat.png'),
+                      radial-gradient(circle at 15% 85%, hsla(25, 88%, 60%, 0.1), transparent 40%),
+                      radial-gradient(circle at 85% 15%, hsla(190, 80%, 60%, 0.1), transparent 40%);
+    background-color: hsl(var(--background));
+    background-attachment: fixed;
   }
 }

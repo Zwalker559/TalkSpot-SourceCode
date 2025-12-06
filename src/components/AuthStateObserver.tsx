@@ -88,10 +88,13 @@ export function AuthStateObserver({
     root.classList.add(themeToApply);
 
     // Special background gradients
-    document.body.classList.remove('bg-gradient-patriotic', 'bg-gradient-default');
+    document.body.classList.remove('bg-gradient-patriotic', 'bg-gradient-default', 'bg-gradient-kenny');
     if (themeToApply.startsWith('theme-patriotic')) {
       document.body.classList.add('bg-gradient-patriotic');
-    } else {
+    } else if (themeToApply.startsWith('theme-kenny')) {
+      document.body.classList.add('bg-gradient-kenny');
+    }
+     else {
       // Default gradient for classic theme and others.
       document.body.classList.add('bg-gradient-default');
     }
