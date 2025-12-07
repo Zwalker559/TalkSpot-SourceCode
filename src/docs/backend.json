@@ -273,7 +273,7 @@
             },
             "description": "All messages within a specific conversation."
         },
-        "/promotions/{promotionId}": {
+        "/Sponsorships/{sponsorshipId}": {
             "schema": {
                 "$ref": "#/entities/promotion"
             },

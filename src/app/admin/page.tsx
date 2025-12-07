@@ -47,6 +47,7 @@ import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type UserProfile = {
@@ -422,7 +423,7 @@ function SponsorManagementTool() {
     useEffect(() => {
         if (!firestore) return;
         setLoading(true);
-        const unsubscribe = onSnapshot(collection(firestore, 'promotions'), snapshot => {
+        const unsubscribe = onSnapshot(collection(firestore, 'Sponsorships'), snapshot => {
             const promoList: Promotion[] = [];
             snapshot.forEach(doc => {
                 promoList.push({ id: doc.id, ...doc.data() } as Promotion);
@@ -470,7 +471,7 @@ function SponsorManagementTool() {
     const confirmDelete = async () => {
         if (!firestore || !promoToDelete) return;
         try {
-            await deleteDoc(doc(firestore, 'promotions', promoToDelete.id));
+            await deleteDoc(doc(firestore, 'Sponsorships', promoToDelete.id));
             toast({ title: "Promotion Deleted" });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not delete promotion.' });
@@ -484,7 +485,7 @@ function SponsorManagementTool() {
         if (!firestore) return;
         const newStatus = promo.status === 'active' ? 'disabled' : 'active';
         try {
-            await updateDoc(doc(firestore, 'promotions', promo.id), { status: newStatus });
+            await updateDoc(doc(firestore, 'Sponsorships', promo.id), { status: newStatus });
             toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not update status.' });
@@ -514,10 +515,10 @@ function SponsorManagementTool() {
             if (editingPromo) {
                 // When updating, we don't want to overwrite the original createdAt timestamp
                 const { createdAt, ...updateData } = promoData;
-                await updateDoc(doc(firestore, 'promotions', editingPromo.id), updateData);
+                await updateDoc(doc(firestore, 'Sponsorships', editingPromo.id), updateData);
                 toast({ title: 'Promotion Updated' });
             } else {
-                await addDoc(collection(firestore, 'promotions'), promoData);
+                await addDoc(collection(firestore, 'Sponsorships'), promoData);
                 toast({ title: 'Promotion Added' });
             }
             setFormOpen(false);
@@ -613,54 +614,56 @@ function SponsorManagementTool() {
                         <DialogTitle>{editingPromo ? 'Edit' : 'Add'} Promotion</DialogTitle>
                         <DialogDescription>Fill out the details for the promotion.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="title">Title</Label>
-                            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
-                        </div>
-                        <div className="space-y-2">
-                             <Label>Type</Label>
-                             <Tabs defaultValue={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
-                                <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Text</TabsTrigger>
-                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Image</TabsTrigger>
-                                </TabsList>
-                             </Tabs>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="content">{type === 'image' ? 'Image URL' : 'Ad Text'}</Label>
-                             <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={type === 'image' ? 'https://example.com/image.png' : 'Your ad text here...'} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="action-type">Click Action</Label>
-                            <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup')}>
-                                <SelectTrigger id="action-type">
-                                    <SelectValue placeholder="Select an action" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="url"><Link className="mr-2 h-4 w-4" />Open URL</SelectItem>
-                                    <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {actionType === 'url' && (
+                    <ScrollArea className="max-h-[70vh] pr-6">
+                        <div className="grid gap-4 py-4">
                             <div className="space-y-2">
-                                <Label htmlFor="linkUrl">Link URL</Label>
-                                <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+                                <Label htmlFor="title">Title</Label>
+                                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
                             </div>
-                        )}
-                        {actionType === 'popup' && (
                             <div className="space-y-2">
-                                <Label htmlFor="popupContent">Pop-up Content</Label>
-                                <Textarea id="popupContent" value={popupContent} onChange={(e) => setPopupContent(e.target.value)} placeholder="Enter the informational text for the pop-up..." />
+                                <Label>Type</Label>
+                                <Tabs defaultValue={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Text</TabsTrigger>
+                                        <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Image</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
                             </div>
-                        )}
-                        <div className="space-y-2">
-                            <Label htmlFor="displayWeight">Display Weight</Label>
-                            <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
-                             <p className="text-sm text-muted-foreground">A higher number means a higher chance of being displayed.</p>
+                            <div className="space-y-2">
+                                <Label htmlFor="content">{type === 'image' ? 'Image URL' : 'Ad Text'}</Label>
+                                <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={type === 'image' ? 'https://example.com/image.png' : 'Your ad text here...'} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="action-type">Click Action</Label>
+                                <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup')}>
+                                    <SelectTrigger id="action-type">
+                                        <SelectValue placeholder="Select an action" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="url"><Link className="mr-2 h-4 w-4" />Open URL</SelectItem>
+                                        <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {actionType === 'url' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="linkUrl">Link URL</Label>
+                                    <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+                                </div>
+                            )}
+                            {actionType === 'popup' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="popupContent">Pop-up Content</Label>
+                                    <Textarea id="popupContent" value={popupContent} onChange={(e) => setPopupContent(e.target.value)} placeholder="Enter the informational text for the pop-up..." />
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <Label htmlFor="displayWeight">Display Weight</Label>
+                                <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
+                                <p className="text-sm text-muted-foreground">A higher number means a higher chance of being displayed.</p>
+                            </div>
                         </div>
-                    </div>
+                    </ScrollArea>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
                         <Button onClick={handleSave}>Save</Button>
