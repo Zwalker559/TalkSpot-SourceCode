@@ -15,7 +15,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if request.auth != null;
+      // Allow any authenticated user to read any user's profile.
+      // Add a specific 'get' rule to allow cross-document reads in functions.
+      allow get: if request.auth != null;
+      allow list: if request.auth != null;
+      
       allow create: if request.auth.uid == userId;
 
       // Allow updates under specific conditions:
