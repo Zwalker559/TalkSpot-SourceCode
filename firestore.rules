@@ -66,7 +66,10 @@ service cloud.firestore {
     }
 
     match /Sponsorships/{sponsorshipId} {
-      allow read, create, update, delete: if isManager();
+      // Separate list permission for collection-level reads
+      allow list: if isManager();
+      // Keep other permissions for document-level access
+      allow get, create, update, delete: if isManager();
     }
   }
 }
