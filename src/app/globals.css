@@ -548,6 +548,13 @@
       background-attachment: fixed;
   }
 
+  body.bg-gradient-classic-dark {
+    background-image: radial-gradient(circle at 20% 20%, hsla(270, 80%, 75%, 0.1), transparent 30%),
+                      radial-gradient(circle at 80% 70%, hsla(240, 80%, 75%, 0.1), transparent 30%);
+    background-attachment: fixed;
+}
+
+
   body.bg-gradient-patriotic {
       background-image: radial-gradient(circle at 10% 10%, hsla(228, 80%, 50%, 0.15), transparent 30%),
                         radial-gradient(circle at 90% 80%, hsla(0, 80%, 50%, 0.15), transparent 30%);
