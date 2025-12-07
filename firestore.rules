@@ -64,5 +64,9 @@ service cloud.firestore {
        allow read, delete: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
        allow create: if request.auth.uid == request.resource.data.senderId && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
+
+    match /promotions/{promotionId} {
+      allow read, create, update, delete: if isManager();
+    }
   }
 }

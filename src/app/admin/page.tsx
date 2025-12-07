@@ -1,7 +1,7 @@
 
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,13 +36,16 @@ import {
 } from '@/components/ui/table';
 import { useEffect, useState } from 'react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import Image from 'next/image';
+import { Textarea } from '@/components/ui/textarea';
 
 
 type UserProfile = {
@@ -54,6 +57,17 @@ type UserProfile = {
   status?: 'Active' | 'Suspended';
   textingId: string;
 };
+
+type Promotion = {
+    id: string;
+    title: string;
+    type: 'text' | 'image';
+    content: string;
+    linkUrl?: string;
+    status: 'active' | 'disabled';
+    displayWeight: number;
+    createdAt?: any;
+}
 
 const ROLES = ['User', 'Sub-Manager', 'Lead-Manager'];
 
@@ -381,6 +395,260 @@ function UserManagementTool() {
   );
 }
 
+function SponsorManagementTool() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Dialog states
+    const [isFormOpen, setFormOpen] = useState(false);
+    const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
+    const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [promoToDelete, setPromoToDelete] = useState<Promotion | null>(null);
+
+    // Form state
+    const [title, setTitle] = useState('');
+    const [type, setType] = useState<'text' | 'image'>('text');
+    const [content, setContent] = useState('');
+    const [linkUrl, setLinkUrl] = useState('');
+    const [displayWeight, setDisplayWeight] = useState(1);
+
+    useEffect(() => {
+        if (!firestore) return;
+        setLoading(true);
+        const unsubscribe = onSnapshot(collection(firestore, 'promotions'), snapshot => {
+            const promoList: Promotion[] = [];
+            snapshot.forEach(doc => {
+                promoList.push({ id: doc.id, ...doc.data() } as Promotion);
+            });
+            setPromotions(promoList.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }, [firestore]);
+    
+    const resetForm = () => {
+        setTitle('');
+        setType('text');
+        setContent('');
+        setLinkUrl('');
+        setDisplayWeight(1);
+        setEditingPromo(null);
+    }
+
+    const handleAddClick = () => {
+        resetForm();
+        setFormOpen(true);
+    };
+    
+    const handleEditClick = (promo: Promotion) => {
+        setEditingPromo(promo);
+        setTitle(promo.title);
+        setType(promo.type);
+        setContent(promo.content);
+        setLinkUrl(promo.linkUrl || '');
+        setDisplayWeight(promo.displayWeight);
+        setFormOpen(true);
+    }
+
+    const handleDeleteClick = (promo: Promotion) => {
+        setPromoToDelete(promo);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!firestore || !promoToDelete) return;
+        try {
+            await deleteDoc(doc(firestore, 'promotions', promoToDelete.id));
+            toast({ title: "Promotion Deleted" });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not delete promotion.' });
+        } finally {
+            setDeleteDialogOpen(false);
+            setPromoToDelete(null);
+        }
+    }
+
+    const handleStatusToggle = async (promo: Promotion) => {
+        if (!firestore) return;
+        const newStatus = promo.status === 'active' ? 'disabled' : 'active';
+        try {
+            await updateDoc(doc(firestore, 'promotions', promo.id), { status: newStatus });
+            toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not update status.' });
+        }
+    };
+    
+    const handleSave = async () => {
+        if (!firestore) return;
+        if (!title || !content) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Title and Content are required.'});
+            return;
+        }
+
+        const promoData = {
+            title,
+            type,
+            content,
+            linkUrl,
+            displayWeight: Number(displayWeight) || 1,
+            status: editingPromo?.status || 'active',
+            createdAt: editingPromo?.createdAt || serverTimestamp(),
+        };
+        
+        try {
+            if (editingPromo) {
+                await updateDoc(doc(firestore, 'promotions', editingPromo.id), promoData);
+                toast({ title: 'Promotion Updated' });
+            } else {
+                await addDoc(collection(firestore, 'promotions'), promoData);
+                toast({ title: 'Promotion Added' });
+            }
+            setFormOpen(false);
+            resetForm();
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save promotion.' });
+        }
+    }
+
+
+    return (
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Sponsors & Promotions</CardTitle>
+                        <CardDescription>Manage advertisements that appear in the app.</CardDescription>
+                    </div>
+                    <Button onClick={handleAddClick}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Promotion
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Weight</TableHead>
+                                <TableHead><span className="sr-only">Actions</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
+                            ) : promotions.length === 0 ? (
+                                <TableRow><TableCell colSpan={5} className="text-center">No promotions yet.</TableCell></TableRow>
+                            ) : (
+                                promotions.map(promo => (
+                                    <TableRow key={promo.id}>
+                                        <TableCell className="font-medium flex items-center gap-3">
+                                            {promo.type === 'image' ? (
+                                                <Image src={promo.content} alt={promo.title} width={40} height={40} className="rounded-md object-cover aspect-square"/>
+                                            ) : (
+                                                <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
+                                                    <FileText className="h-5 w-5 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                            {promo.title}
+                                        </TableCell>
+                                        <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
+                                        <TableCell>
+                                             <Badge variant={promo.status === 'active' ? 'default' : 'destructive'} className={promo.status === 'active' ? 'bg-green-500/20 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/30' : ''}>
+                                                {promo.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>{promo.displayWeight}</TableCell>
+                                        <TableCell>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent>
+                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                    <DropdownMenuItem onClick={() => handleEditClick(promo)}>
+                                                        <Edit className="mr-2 h-4 w-4"/>Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleStatusToggle(promo)}>
+                                                        <UserX className="mr-2 h-4 w-4" />{promo.status === 'active' ? 'Disable' : 'Enable'}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick(promo)}>
+                                                        <Trash2 className="mr-2 h-4 w-4"/>Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            
+            <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>{editingPromo ? 'Edit' : 'Add'} Promotion</DialogTitle>
+                        <DialogDescription>Fill out the details for the promotion.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="title">Title</Label>
+                            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
+                        </div>
+                        <div className="space-y-2">
+                             <Label>Type</Label>
+                             <Tabs defaultValue={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="text">Text</TabsTrigger>
+                                    <TabsTrigger value="image">Image</TabsTrigger>
+                                </TabsList>
+                             </Tabs>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="content">{type === 'image' ? 'Image URL' : 'Ad Text'}</Label>
+                             <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={type === 'image' ? 'https://example.com/image.png' : 'Your ad text here...'} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="linkUrl">Link URL (Optional)</Label>
+                            <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="displayWeight">Display Weight</Label>
+                            <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
+                             <p className="text-sm text-muted-foreground">A higher number means a higher chance of being displayed.</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSave}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Promotion?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete the promotion "{promoToDelete?.title}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    )
+}
+
 export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
@@ -394,29 +662,15 @@ export default function AdminDashboardPage() {
       <Tabs defaultValue="user-management" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="user-management">User Management</TabsTrigger>
-          <TabsTrigger value="coming-soon">Coming Soon</TabsTrigger>
+          <TabsTrigger value="sponsors">Sponsors</TabsTrigger>
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
           <UserManagementTool />
         </TabsContent>
-        <TabsContent value="coming-soon" className="mt-6">
-           <Card>
-            <CardHeader>
-              <CardTitle>Future Tool</CardTitle>
-              <CardDescription>
-                This is a placeholder for a future administrative tool.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-12">
-                This feature is coming soon!
-              </p>
-            </CardContent>
-          </Card>
+        <TabsContent value="sponsors" className="mt-6">
+           <SponsorManagementTool />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    

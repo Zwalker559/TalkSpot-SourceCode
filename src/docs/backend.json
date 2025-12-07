@@ -79,6 +79,44 @@
                 "visibility"
             ]
         },
+        "promotion": {
+            "title": "Promotion",
+            "description": "An advertisement or promotion to be displayed in the app.",
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "The title of the promotion."
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["text", "image"],
+                    "description": "The type of promotion."
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The ad text or a URL to the ad image."
+                },
+                "linkUrl": {
+                    "type": "string",
+                    "description": "The URL the promotion links to when clicked."
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "disabled"],
+                    "description": "The current status of the promotion."
+                },
+                "displayWeight": {
+                    "type": "number",
+                    "description": "A number representing the chance of this promotion being displayed. Higher is more likely."
+                },
+                "createdAt": {
+                    "$ref": "#/entities/timestamp",
+                    "description": "Timestamp of when the promotion was created."
+                }
+            },
+            "required": ["title", "type", "content", "status", "displayWeight"]
+        },
         "chatRequest": {
             "title": "Chat Request",
             "description": "A request from one user to start a chat with another.",
@@ -225,6 +263,12 @@
                 "$ref": "#/entities/message"
             },
             "description": "All messages within a specific conversation."
+        },
+        "/promotions/{promotionId}": {
+            "schema": {
+                "$ref": "#/entities/promotion"
+            },
+            "description": "Stores all sponsor promotions and advertisements."
         }
     }
 }
