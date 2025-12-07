@@ -3,5 +3,9 @@
 import ChatClient from '@/components/chat/chat-client';
 
 export default function DashboardPage() {
-  return <ChatClient />;
+  return (
+    <div className="h-full">
+      <ChatClient />
+    </div>
+  );
 }
