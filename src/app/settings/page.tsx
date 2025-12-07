@@ -26,8 +26,8 @@ const presetQuestions = [
 ];
 
 const themes = [
-  { value: 'theme-classic', label: 'Classic' },
   { value: 'theme-classic-l', label: 'Classic (L)' },
+  { value: 'theme-classic-d', label: 'Classic (D)' },
   { value: 'theme-patriotic-l', label: 'Patriotic (L)' },
   { value: 'theme-patriotic-d', label: 'Patriotic (D)' },
   { value: 'theme-electric-l', label: 'Electric (L)' },
