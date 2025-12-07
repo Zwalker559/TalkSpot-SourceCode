@@ -363,7 +363,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </header>
-            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
+            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
                {canRenderChildren ? children : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <p className="text-lg">Please complete the onboarding steps...</p>
@@ -467,3 +467,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </>
   );
 }
+
+    
