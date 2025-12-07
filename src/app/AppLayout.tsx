@@ -290,7 +290,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col max-h-screen">
             <header className="flex h-16 items-center gap-4 border-b bg-muted/40 px-4 lg:px-6">
               <Sheet>
                 <SheetTrigger asChild>
@@ -363,7 +363,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </header>
-            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+            <main className="flex flex-col flex-1 gap-4 p-4 lg:gap-6 lg:p-6 overflow-hidden">
                {canRenderChildren ? children : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <p className="text-lg">Please complete the onboarding steps...</p>
@@ -467,5 +467,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </>
   );
 }
-
-    

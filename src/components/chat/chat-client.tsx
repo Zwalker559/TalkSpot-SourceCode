@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -411,7 +412,7 @@ export default function ChatClient() {
 
 
   return (
-    <div className="grid grid-cols-[300px_1fr] h-[calc(100vh_-_8rem)] gap-4">
+    <div className="grid grid-cols-[300px_1fr] h-full gap-4">
       {/* Sidebar */}
       <div className="flex flex-col border-r h-full">
         <div className="p-4 border-b">
@@ -537,6 +538,3 @@ export default function ChatClient() {
     </div>
   );
 }
-
-    
-    
