@@ -413,7 +413,7 @@ export default function ChatClient() {
   return (
     <div className="grid grid-cols-[300px_1fr] h-[calc(100vh_-_8rem)] gap-4">
       {/* Sidebar */}
-      <div className="flex flex-col border-r">
+      <div className="flex flex-col border-r h-full">
         <div className="p-4 border-b">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -468,7 +468,7 @@ export default function ChatClient() {
       </div>
 
       {/* Main Chat View */}
-      <div className="flex flex-col">
+      <div className="flex flex-col h-full">
         {selectedConvo ? (
           <>
             <div className="flex items-center justify-between p-4 border-b">
@@ -538,4 +538,5 @@ export default function ChatClient() {
   );
 }
 
+    
     
