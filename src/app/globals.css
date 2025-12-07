@@ -71,7 +71,7 @@
   }
 
   .theme-classic-d.dark {
-    --background: 276 37% 4%;
+    --background: 276 37% 2%;
     --foreground: 240 5% 95%;
     --card: 276 37% 8%;
     --card-foreground: 240 5% 95%;
@@ -562,3 +562,5 @@
     background-attachment: fixed;
   }
 }
+
+    
