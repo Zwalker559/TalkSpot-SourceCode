@@ -27,25 +27,25 @@
   }
 
   .dark {
-    --background: 276 37% 4%;
-    --foreground: 240 5% 95%;
-    --card: 276 37% 8%;
-    --card-foreground: 240 5% 95%;
-    --popover: 276 37% 6%;
-    --popover-foreground: 240 5% 95%;
-    --primary: 248 39% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 100% 20%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 276 37% 11%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 248 39% 35%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 276 37% 15%;
-    --input: 276 37% 15%;
-    --ring: 248 39% 50%;
+    --background: 270 50% 5%;
+    --foreground: 270 10% 95%;
+    --card: 270 40% 10%;
+    --card-foreground: 270 10% 95%;
+    --popover: 270 50% 7%;
+    --popover-foreground: 270 10% 95%;
+    --primary: 270 80% 75%;
+    --primary-foreground: 270 80% 10%;
+    --secondary: 270 30% 25%;
+    --secondary-foreground: 270 10% 95%;
+    --muted: 270, 30%, 15%;
+    --muted-foreground: 270 10% 70%;
+    --accent: 280 70% 45%;
+    --accent-foreground: 280 10% 95%;
+    --destructive: 350 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 30% 20%;
+    --input: 270 30% 22%;
+    --ring: 270 80% 80%;
   }
 
   .theme-classic-l {
@@ -69,8 +69,8 @@
     --input: 0 0% 89.8%;
     --ring: 330 100% 71%;
   }
-  
- .theme-classic-d.dark {
+
+  .theme-classic-d.dark {
     --background: 276 37% 4%;
     --foreground: 240 5% 95%;
     --card: 276 37% 8%;
@@ -91,7 +91,7 @@
     --input: 276 37% 15%;
     --ring: 248 39% 50%;
   }
-  
+
   .theme-patriotic-l {
     --background: 0 0% 96%;
     --foreground: 222 47% 11%;
@@ -135,7 +135,7 @@
     --input: 225 40% 25%;
     --ring: 0 72% 51%;
   }
-  
+
   .theme-electric-l {
     --background: 280 50% 98%;
     --foreground: 280 20% 10%;
@@ -157,7 +157,7 @@
     --input: 280 40% 90%;
     --ring: 275 80% 55%;
   }
-  
+
   .theme-electric-d.dark {
     --background: 260 60% 5%;
     --foreground: 260 20% 95%;
@@ -201,7 +201,7 @@
     --input: 110 30% 90%;
     --ring: 125 45% 35%;
   }
-  
+
   .theme-forest-d.dark {
     --background: 120 20% 5%;
     --foreground: 120 5% 95%;
@@ -245,7 +245,7 @@
     --input: 25 60% 90%;
     --ring: 15 85% 55%;
   }
-  
+
   .theme-sunset-d.dark {
     --background: 25 30% 5%;
     --foreground: 30 10% 95%;
@@ -267,7 +267,7 @@
     --input: 20 25% 15%;
     --ring: 340 80% 65%;
   }
-  
+
   .theme-ocean-l {
     --background: 195 40% 98%;
     --foreground: 210 25% 10%;
@@ -311,7 +311,7 @@
     --input: 205 25% 18%;
     --ring: 190 80% 60%;
   }
-  
+
   .theme-lavender-l {
     --background: 270 60% 98%;
     --foreground: 270 20% 10%;
@@ -355,7 +355,7 @@
     --input: 260 25% 20%;
     --ring: 270 70% 75%;
   }
-  
+
   .theme-monochrome-l {
     --background: 0 0% 98%;
     --foreground: 0 0% 9%;
@@ -399,7 +399,7 @@
     --input: 0 0% 25%;
     --ring: 0 0% 80%;
   }
-  
+
   .theme-coral-l {
     --background: 5 80% 98%;
     --foreground: 5 25% 10%;
@@ -443,7 +443,7 @@
     --input: 0 30% 18%;
     --ring: 10 90% 65%;
   }
-  
+
   .theme-mint-l {
     --background: 160 50% 98%;
     --foreground: 160 20% 10%;
@@ -465,7 +465,7 @@
     --input: 155 60% 92%;
     --ring: 165 65% 45%;
   }
-  
+
   .theme-mint-d.dark {
     --background: 150 25% 8%;
     --foreground: 150 10% 95%;
@@ -541,7 +541,7 @@
   body {
     @apply bg-background text-foreground;
   }
-  
+
   body.bg-gradient-default {
       background-image: radial-gradient(circle at 20% 20%, hsl(var(--secondary) / 0.1), transparent 30%),
                         radial-gradient(circle at 80% 70%, hsl(var(--primary) / 0.1), transparent 30%);
