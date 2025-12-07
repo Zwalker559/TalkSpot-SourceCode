@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2 } from 'lucide-react';
@@ -43,6 +42,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 type UserProfile = {
@@ -57,14 +57,14 @@ type UserProfile = {
 
 const ROLES = ['User', 'Sub-Manager', 'Lead-Manager'];
 
-export default function AdminDashboardPage() {
+function UserManagementTool() {
   const { user: currentUser } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
-  
+
   // Dialog states
   const [isSuspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<UserProfile | null>(null);
@@ -218,7 +218,6 @@ export default function AdminDashboardPage() {
       setUserToEdit(null);
     }
   };
-
 
   return (
     <>
@@ -381,3 +380,43 @@ export default function AdminDashboardPage() {
     </>
   );
 }
+
+export default function AdminDashboardPage() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+        <p className="text-muted-foreground">
+          Access administrative tools and manage your application.
+        </p>
+      </div>
+
+      <Tabs defaultValue="user-management" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="user-management">User Management</TabsTrigger>
+          <TabsTrigger value="coming-soon">Coming Soon</TabsTrigger>
+        </TabsList>
+        <TabsContent value="user-management" className="mt-6">
+          <UserManagementTool />
+        </TabsContent>
+        <TabsContent value="coming-soon" className="mt-6">
+           <Card>
+            <CardHeader>
+              <CardTitle>Future Tool</CardTitle>
+              <CardDescription>
+                This is a placeholder for a future administrative tool.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center text-muted-foreground py-12">
+                This feature is coming soon!
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+    
