@@ -97,9 +97,18 @@
                     "type": "string",
                     "description": "The ad text or a URL to the ad image."
                 },
+                 "actionType": {
+                    "type": "string",
+                    "enum": ["url", "popup"],
+                    "description": "The action to perform when the promotion is clicked."
+                },
                 "linkUrl": {
                     "type": "string",
-                    "description": "The URL the promotion links to when clicked."
+                    "description": "The URL the promotion links to (if actionType is 'url')."
+                },
+                "popupContent": {
+                    "type": "string",
+                    "description": "The informational text to show in a pop-up (if actionType is 'popup')."
                 },
                 "status": {
                     "type": "string",
@@ -115,7 +124,7 @@
                     "description": "Timestamp of when the promotion was created."
                 }
             },
-            "required": ["title", "type", "content", "status", "displayWeight"]
+            "required": ["title", "type", "content", "actionType", "status", "displayWeight"]
         },
         "chatRequest": {
             "title": "Chat Request",

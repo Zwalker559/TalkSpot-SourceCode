@@ -1,7 +1,7 @@
 
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type UserProfile = {
@@ -63,7 +64,9 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
+    actionType: 'url' | 'popup';
     linkUrl?: string;
+    popupContent?: string;
     status: 'active' | 'disabled';
     displayWeight: number;
     createdAt?: any;
@@ -411,7 +414,9 @@ function SponsorManagementTool() {
     const [title, setTitle] = useState('');
     const [type, setType] = useState<'text' | 'image'>('text');
     const [content, setContent] = useState('');
+    const [actionType, setActionType] = useState<'url' | 'popup'>('url');
     const [linkUrl, setLinkUrl] = useState('');
+    const [popupContent, setPopupContent] = useState('');
     const [displayWeight, setDisplayWeight] = useState(1);
 
     useEffect(() => {
@@ -422,6 +427,7 @@ function SponsorManagementTool() {
             snapshot.forEach(doc => {
                 promoList.push({ id: doc.id, ...doc.data() } as Promotion);
             });
+            // Sort by creation date, newest first
             setPromotions(promoList.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
             setLoading(false);
         });
@@ -432,7 +438,9 @@ function SponsorManagementTool() {
         setTitle('');
         setType('text');
         setContent('');
+        setActionType('url');
         setLinkUrl('');
+        setPopupContent('');
         setDisplayWeight(1);
         setEditingPromo(null);
     }
@@ -447,7 +455,9 @@ function SponsorManagementTool() {
         setTitle(promo.title);
         setType(promo.type);
         setContent(promo.content);
+        setActionType(promo.actionType || 'url');
         setLinkUrl(promo.linkUrl || '');
+        setPopupContent(promo.popupContent || '');
         setDisplayWeight(promo.displayWeight);
         setFormOpen(true);
     }
@@ -488,19 +498,23 @@ function SponsorManagementTool() {
             return;
         }
 
-        const promoData = {
+        const promoData: Omit<Promotion, 'id'> = {
             title,
             type,
             content,
-            linkUrl,
+            actionType,
+            linkUrl: actionType === 'url' ? linkUrl : '',
+            popupContent: actionType === 'popup' ? popupContent : '',
             displayWeight: Number(displayWeight) || 1,
             status: editingPromo?.status || 'active',
             createdAt: editingPromo?.createdAt || serverTimestamp(),
         };
-        
+
         try {
             if (editingPromo) {
-                await updateDoc(doc(firestore, 'promotions', editingPromo.id), promoData);
+                // When updating, we don't want to overwrite the original createdAt timestamp
+                const { createdAt, ...updateData } = promoData;
+                await updateDoc(doc(firestore, 'promotions', editingPromo.id), updateData);
                 toast({ title: 'Promotion Updated' });
             } else {
                 await addDoc(collection(firestore, 'promotions'), promoData);
@@ -508,8 +522,9 @@ function SponsorManagementTool() {
             }
             setFormOpen(false);
             resetForm();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save promotion.' });
+        } catch (error: any) {
+            console.error("Failed to save promotion:", error);
+            toast({ variant: 'destructive', title: 'Error', description: `Failed to save promotion: ${error.message}` });
         }
     }
 
@@ -532,6 +547,7 @@ function SponsorManagementTool() {
                             <TableRow>
                                 <TableHead>Title</TableHead>
                                 <TableHead>Type</TableHead>
+                                <TableHead>Action</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Weight</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -539,9 +555,9 @@ function SponsorManagementTool() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
                             ) : promotions.length === 0 ? (
-                                <TableRow><TableCell colSpan={5} className="text-center">No promotions yet.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="text-center">No promotions yet.</TableCell></TableRow>
                             ) : (
                                 promotions.map(promo => (
                                     <TableRow key={promo.id}>
@@ -556,6 +572,7 @@ function SponsorManagementTool() {
                                             {promo.title}
                                         </TableCell>
                                         <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
+                                        <TableCell><Badge variant="secondary">{promo.actionType}</Badge></TableCell>
                                         <TableCell>
                                              <Badge variant={promo.status === 'active' ? 'default' : 'destructive'} className={promo.status === 'active' ? 'bg-green-500/20 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/30' : ''}>
                                                 {promo.status}
@@ -591,7 +608,7 @@ function SponsorManagementTool() {
             </Card>
             
             <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>{editingPromo ? 'Edit' : 'Add'} Promotion</DialogTitle>
                         <DialogDescription>Fill out the details for the promotion.</DialogDescription>
@@ -605,8 +622,8 @@ function SponsorManagementTool() {
                              <Label>Type</Label>
                              <Tabs defaultValue={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
                                 <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="text">Text</TabsTrigger>
-                                    <TabsTrigger value="image">Image</TabsTrigger>
+                                    <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Text</TabsTrigger>
+                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Image</TabsTrigger>
                                 </TabsList>
                              </Tabs>
                         </div>
@@ -614,10 +631,30 @@ function SponsorManagementTool() {
                             <Label htmlFor="content">{type === 'image' ? 'Image URL' : 'Ad Text'}</Label>
                              <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={type === 'image' ? 'https://example.com/image.png' : 'Your ad text here...'} />
                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="linkUrl">Link URL (Optional)</Label>
-                            <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+                        <div className="space-y-2">
+                            <Label htmlFor="action-type">Click Action</Label>
+                            <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup')}>
+                                <SelectTrigger id="action-type">
+                                    <SelectValue placeholder="Select an action" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="url"><Link className="mr-2 h-4 w-4" />Open URL</SelectItem>
+                                    <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
+                        {actionType === 'url' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="linkUrl">Link URL</Label>
+                                <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+                            </div>
+                        )}
+                        {actionType === 'popup' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="popupContent">Pop-up Content</Label>
+                                <Textarea id="popupContent" value={popupContent} onChange={(e) => setPopupContent(e.target.value)} placeholder="Enter the informational text for the pop-up..." />
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label htmlFor="displayWeight">Display Weight</Label>
                             <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
