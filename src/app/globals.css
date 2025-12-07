@@ -554,7 +554,7 @@
   }
 
   body.bg-gradient-kenny {
-    background-image: url('https://www.transparenttextures.com/patterns/fabric-of-squares.png'),
+    background-image: url('https://www.transparenttextures.com/patterns/burlap.png'),
                       radial-gradient(circle at 15% 85%, hsla(25, 88%, 60%, 0.1), transparent 40%),
                       radial-gradient(circle at 85% 15%, hsla(190, 80%, 60%, 0.1), transparent 40%);
     background-color: hsl(var(--background));
