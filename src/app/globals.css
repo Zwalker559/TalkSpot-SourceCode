@@ -50,46 +50,46 @@
 
   .theme-classic-l {
     --background: 0 0% 100%;
-    --foreground: 240 100% 20%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 240 100% 20%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 100% 20%;
-    --primary: 330 100% 71%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 195 53% 86%;
-    --secondary-foreground: 240 100% 20%;
-    --muted: 195 53% 94%;
-    --muted-foreground: 240 5% 45%;
-    --accent: 195 53% 90%;
-    --accent-foreground: 240 100% 20%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 330 100% 71%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
   }
 
   .theme-classic-d.dark {
-    --background: 276 37% 2%;
-    --foreground: 240 5% 95%;
-    --card: 276 37% 8%;
-    --card-foreground: 240 5% 95%;
-    --popover: 276 37% 6%;
-    --popover-foreground: 240 5% 95%;
-    --primary: 248 39% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 100% 20%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 276 37% 11%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 248 39% 35%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 276 37% 15%;
-    --input: 276 37% 15%;
-    --ring: 248 39% 50%;
+    --background: 270 50% 5%;
+    --foreground: 270 10% 95%;
+    --card: 270 40% 10%;
+    --card-foreground: 270 10% 95%;
+    --popover: 270 50% 7%;
+    --popover-foreground: 270 10% 95%;
+    --primary: 270 80% 75%;
+    --primary-foreground: 270 80% 10%;
+    --secondary: 270 30% 25%;
+    --secondary-foreground: 270 10% 95%;
+    --muted: 270, 30%, 15%;
+    --muted-foreground: 270 10% 70%;
+    --accent: 280 70% 45%;
+    --accent-foreground: 280 10% 95%;
+    --destructive: 350 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 30% 20%;
+    --input: 270 30% 22%;
+    --ring: 270 80% 80%;
   }
 
   .theme-patriotic-l {
@@ -562,5 +562,4 @@
     background-attachment: fixed;
   }
 }
-
     
