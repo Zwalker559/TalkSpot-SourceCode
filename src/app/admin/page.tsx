@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare } from 'lucide-react';
@@ -49,7 +48,7 @@ import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { errorEmitter, FirestorePermissionError, type SecurityRuleContext } from '@/firebase';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 
 type UserProfile = {
@@ -524,7 +523,7 @@ function SponsorManagementTool() {
                     setFormOpen(false);
                     resetForm();
                 })
-                .catch(async (serverError) => {
+                .catch((serverError) => {
                     const permissionError = new FirestorePermissionError({
                         path: docRef.path,
                         operation: 'update',
@@ -541,7 +540,7 @@ function SponsorManagementTool() {
                     setFormOpen(false);
                     resetForm();
                 })
-                .catch(async (serverError) => {
+                .catch((serverError) => {
                     const permissionError = new FirestorePermissionError({
                         path: collRef.path,
                         operation: 'create',
@@ -737,5 +736,7 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
