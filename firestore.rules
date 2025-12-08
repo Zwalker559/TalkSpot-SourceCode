@@ -5,59 +5,50 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isLeadManager(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Lead-Manager';
+      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
+      return userRole == 'Lead-Manager';
     }
 
     function isSubManager(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Sub-Manager';
+      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
+      return userRole == 'Sub-Manager';
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
     
     function isManager(userId) {
-        let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
-        return userRole == 'Lead-Manager' || userRole == 'Sub-Manager';
+      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
+      return userRole == 'Lead-Manager' || userRole == 'Sub-Manager';
     }
 
-    // Allow authenticated users to read any single user document.
-    // This is required for the helper functions (e.g., isManager) to work correctly,
-    // as they need to 'get' the user's role from their profile.
     match /users/{userId} {
       allow get: if request.auth != null;
-    }
-
-    match /users/{userId} {
-      // Allow authenticated users to list profiles for search/display purposes.
       allow list: if request.auth != null;
-      // A user can create their own profile.
-      allow create: if request.auth.uid == userId;
-      
-      // A user can update their own profile.
-      // A Lead-Manager can update any user's profile.
-      // A Sub-Manager can only update users with the 'User' role.
-      allow update: if request.auth.uid == userId || 
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || 
                        isLeadManager(request.auth.uid) ||
                        (isSubManager(request.auth.uid) && resource.data.role == 'User');
-
-      // A Lead-Manager can delete any user.
-      // A Sub-Manager can only delete users with the 'User' role.
-      allow delete: if isLeadManager(request.auth.uid) ||
+      allow delete: if isLeadManager(request.auth.uid) || 
                        (isSubManager(request.auth.uid) && resource.data.role == 'User');
     }
 
     match /user_lookups/{lookupId} {
       allow read: if true;
-      allow create: if request.auth.uid == request.resource.data.uid;
-      allow update: if request.auth.uid == request.resource.data.uid || isManager(request.auth.uid);
+      allow create: if isOwner(request.resource.data.uid);
+      allow update: if isOwner(request.resource.data.uid) || isManager(request.auth.uid);
       allow delete: if isManager(request.auth.uid);
     }
     
     match /password_recovery/{userId} {
-      allow read, create, update: if request.auth.uid == userId;
+      allow read, create, update: if isOwner(userId);
     }
 
     match /requests/{requestId} {
-        allow read: if request.auth.uid == resource.data.to || request.auth.uid == resource.data.from;
-        allow create: if request.auth.uid == request.resource.data.from;
-        allow update, delete: if request.auth.uid == resource.data.to || request.auth.uid == resource.data.from;
+        allow read: if isOwner(resource.data.to) || isOwner(resource.data.from);
+        allow create: if isOwner(request.resource.data.from);
+        allow update, delete: if isOwner(resource.data.to) || isOwner(resource.data.from);
     }
 
     match /conversations/{conversationId} {
@@ -67,12 +58,11 @@ service cloud.firestore {
 
     match /conversations/{conversationId}/messages/{messageId} {
        allow read, delete: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
-       allow create: if request.auth.uid == request.resource.data.senderId && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+       allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
 
     match /Sponsorships/{sponsorshipId} {
-      // Only managers can read, list, or write to the sponsorships collection.
-      allow read, write: if isManager(request.auth.uid);
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
   }
 }
