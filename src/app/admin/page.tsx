@@ -1,4 +1,3 @@
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare } from 'lucide-react';
@@ -134,13 +133,13 @@ function UserManagementTool() {
         }
     }, [currentUser, firestore]);
 
-  const canManage = (targetUserRole: string) => {
-    if (!currentUserRole) return false;
+  const canManage = (targetUser: UserProfile) => {
+    if (!currentUserRole || currentUser?.uid === targetUser.uid) return false;
     if (currentUserRole === 'Lead-Manager') {
-        return true; // Lead-Manager can manage anyone
+        return true; 
     }
-    if (currentUserRole === 'Sub-Manager' && targetUserRole === 'User') {
-        return true; // Sub-Manager can only manage Users
+    if (currentUserRole === 'Sub-Manager' && targetUser.role === 'User') {
+        return true; 
     }
     return false;
   };
@@ -148,12 +147,19 @@ function UserManagementTool() {
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', userId);
-    try {
-      await updateDoc(userDocRef, { role: newRole });
-      toast({ title: 'Success', description: 'User role updated.' });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not update user role.' });
-    }
+    const data = { role: newRole };
+    updateDoc(userDocRef, data)
+      .then(() => {
+        toast({ title: 'Success', description: 'User role updated.' });
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'update',
+            requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleSuspendClick = (user: UserProfile) => {
@@ -176,15 +182,23 @@ function UserManagementTool() {
     if (!firestore || !userToSuspend) return;
     const newStatus = userToSuspend.status === 'Active' ? 'Suspended' : 'Active';
     const userDocRef = doc(firestore, 'users', userToSuspend.uid);
-    try {
-        await updateDoc(userDocRef, { status: newStatus });
-        toast({ title: 'Success', description: `User has been ${newStatus.toLowerCase()}.` });
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not update user status.' });
-    } finally {
-        setSuspendDialogOpen(false);
-        setUserToSuspend(null);
-    }
+    const data = { status: newStatus };
+    updateDoc(userDocRef, data)
+        .then(() => {
+            toast({ title: 'Success', description: `User has been ${newStatus.toLowerCase()}.` });
+        })
+        .catch((serverError) => {
+             const permissionError = new FirestorePermissionError({
+                path: userDocRef.path,
+                operation: 'update',
+                requestResourceData: data,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setSuspendDialogOpen(false);
+            setUserToSuspend(null);
+        });
   }
 
   const confirmRemoveUser = async () => {
@@ -193,11 +207,9 @@ function UserManagementTool() {
     try {
         const batch = writeBatch(firestore);
 
-        // Delete from users collection
         const userDocRef = doc(firestore, 'users', userToRemove.uid);
         batch.delete(userDocRef);
 
-        // Delete from user_lookups collection
         const lookupDocRef = doc(firestore, 'user_lookups', userToRemove.uid);
         batch.delete(lookupDocRef);
         
@@ -223,19 +235,25 @@ function UserManagementTool() {
     const userDocRef = doc(firestore, 'users', userToEdit.uid);
     const lookupDocRef = doc(firestore, 'user_lookups', userToEdit.uid);
 
-    try {
-      const batch = writeBatch(firestore);
-      batch.update(userDocRef, { displayName: newDisplayName });
-      batch.update(lookupDocRef, { displayName: newDisplayName });
-      await batch.commit();
-
-      toast({ title: 'Success', description: 'User details updated.' });
-    } catch (error) {
-       toast({ variant: 'destructive', title: 'Error', description: 'Could not update user details.' });
-    } finally {
-      setEditDialogOpen(false);
-      setUserToEdit(null);
-    }
+    const batch = writeBatch(firestore);
+    batch.update(userDocRef, { displayName: newDisplayName });
+    batch.update(lookupDocRef, { displayName: newDisplayName });
+    batch.commit()
+        .then(() => {
+             toast({ title: 'Success', description: 'User details updated.' });
+        })
+        .catch((err) => {
+            const permissionError = new FirestorePermissionError({
+                path: `/users and /user_lookups`,
+                operation: 'update',
+                requestResourceData: { displayName: newDisplayName },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setEditDialogOpen(false);
+            setUserToEdit(null);
+        })
   };
 
   return (
@@ -292,7 +310,7 @@ function UserManagementTool() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost" disabled={currentUser?.uid === user.uid || !canManage(user.role)}>
+                        <Button aria-haspopup="true" size="icon" variant="ghost" disabled={!canManage(user)}>
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>
@@ -434,7 +452,7 @@ function SponsorManagementTool() {
             setLoading(false);
         }, (error) => {
             console.error("Error fetching sponsorships:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch sponsorships. Check console for details.'});
+            toast({ variant: 'destructive', title: 'Error Fetching Promotions', description: 'You do not have permission to view sponsorships. Please contact an administrator.'});
             setLoading(false);
         });
         return () => unsubscribe();
@@ -475,26 +493,41 @@ function SponsorManagementTool() {
 
     const confirmDelete = async () => {
         if (!firestore || !promoToDelete) return;
-        try {
-            await deleteDoc(doc(firestore, 'Sponsorships', promoToDelete.id));
-            toast({ title: "Promotion Deleted" });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not delete promotion.' });
-        } finally {
-            setDeleteDialogOpen(false);
-            setPromoToDelete(null);
-        }
+        const docRef = doc(firestore, 'Sponsorships', promoToDelete.id);
+        deleteDoc(docRef)
+            .then(() => {
+                toast({ title: "Promotion Deleted" });
+            })
+            .catch((serverError) => {
+                 const permissionError = new FirestorePermissionError({
+                    path: docRef.path,
+                    operation: 'delete',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            })
+            .finally(() => {
+                setDeleteDialogOpen(false);
+                setPromoToDelete(null);
+            });
     }
 
     const handleStatusToggle = async (promo: Promotion) => {
         if (!firestore) return;
         const newStatus = promo.status === 'active' ? 'disabled' : 'active';
-        try {
-            await updateDoc(doc(firestore, 'Sponsorships', promo.id), { status: newStatus });
-            toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not update status.' });
-        }
+        const docRef = doc(firestore, 'Sponsorships', promo.id);
+        const data = { status: newStatus };
+        updateDoc(docRef, data)
+            .then(() => {
+                toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
+            })
+            .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: docRef.path,
+                    operation: 'update',
+                    requestResourceData: data,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     };
     
     const handleSave = () => {
@@ -736,7 +769,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
-
-    
