@@ -3,44 +3,44 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Get a user's role from their user document.
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    // Helper functions to check user roles by reading the user's document.
+    // These functions are called within the rule definitions below.
+    function isLeadManager(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Lead-Manager';
     }
 
-    // Check if the user is a Lead-Manager or Sub-Manager.
-    function isManager(userId) {
-      let userRole = getUserRole(userId);
-      return userRole == 'Lead-Manager' || userRole == 'Sub-Manager';
+    function isSubManager(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Sub-Manager';
     }
     
-    // Check if the user is a Lead-Manager.
-    function isLeadManager(userId) {
-      return getUserRole(userId) == 'Lead-Manager';
+    function isManager(userId) {
+        let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
+        return userRole == 'Lead-Manager' || userRole == 'Sub-Manager';
     }
 
     match /users/{userId} {
+      // Allow any authenticated user to read user profiles (needed for role checks).
       allow get, list: if request.auth != null;
+      // A user can create their own profile.
       allow create: if request.auth.uid == userId;
       
-      // Allow user to update their own profile.
-      // Allow Lead-Manager to update any user profile.
-      // Allow Sub-Manager to update 'User' role profiles.
-      allow update: if request.auth.uid == userId ||
-        (isLeadManager(request.auth.uid)) ||
-        (isManager(request.auth.uid) && getUserRole(userId) == 'User');
-        
-      // Allow Lead-Manager to delete any user.
-      // Allow Sub-Manager to delete 'User' role profiles.
-      allow delete: if isLeadManager(request.auth.uid) || 
-        (isManager(request.auth.uid) && getUserRole(userId) == 'User');
+      // A user can update their own profile.
+      // A Lead-Manager can update any user's profile.
+      // A Sub-Manager can only update users with the 'User' role.
+      allow update: if request.auth.uid == userId || 
+                       isLeadManager(request.auth.uid) ||
+                       (isSubManager(request.auth.uid) && get(/databases/$(database)/documents/users/$(userId)).data.role == 'User');
+
+      // A Lead-Manager can delete any user.
+      // A Sub-Manager can only delete users with the 'User' role.
+      allow delete: if isLeadManager(request.auth.uid) ||
+                       (isSubManager(request.auth.uid) && get(/databases/$(database)/documents/users/$(userId)).data.role == 'User');
     }
 
     match /user_lookups/{lookupId} {
       allow read: if true;
       allow create: if request.auth.uid == request.resource.data.uid;
-      // Allow user to update their own lookup, or any manager to update any lookup.
-      allow update: if request.auth.uid == lookupId || isManager(request.auth.uid);
+      allow update: if request.auth.uid == request.resource.data.uid || isManager(request.auth.uid);
       allow delete: if isManager(request.auth.uid);
     }
     
