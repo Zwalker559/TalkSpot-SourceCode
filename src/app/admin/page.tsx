@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { errorEmitter, FirestorePermissionError, type SecurityRuleContext } from '@/firebase';
 
 
 type UserProfile = {
@@ -496,7 +498,7 @@ function SponsorManagementTool() {
         }
     };
     
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!firestore) return;
         if (!title || !content) {
             toast({ variant: 'destructive', title: 'Error', description: 'Title and Content are required.'});
@@ -514,21 +516,39 @@ function SponsorManagementTool() {
             status: editingPromo?.status || 'active',
         };
 
-        try {
-            if (editingPromo) {
-                // When updating, we don't want to overwrite the original createdAt timestamp
-                await updateDoc(doc(firestore, 'Sponsorships', editingPromo.id), promoData);
-                toast({ title: 'Promotion Updated' });
-            } else {
-                promoData.createdAt = serverTimestamp();
-                await addDoc(collection(firestore, 'Sponsorships'), promoData);
-                toast({ title: 'Promotion Added' });
-            }
-            setFormOpen(false);
-            resetForm();
-        } catch (error: any) {
-            console.error("Failed to save promotion:", error);
-            toast({ variant: 'destructive', title: 'Error', description: `Failed to save promotion: ${error.message}` });
+        if (editingPromo) {
+            const docRef = doc(firestore, 'Sponsorships', editingPromo.id);
+            updateDoc(docRef, promoData)
+                .then(() => {
+                    toast({ title: 'Promotion Updated' });
+                    setFormOpen(false);
+                    resetForm();
+                })
+                .catch(async (serverError) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: docRef.path,
+                        operation: 'update',
+                        requestResourceData: promoData,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
+        } else {
+            promoData.createdAt = serverTimestamp();
+            const collRef = collection(firestore, 'Sponsorships');
+            addDoc(collRef, promoData)
+                .then(() => {
+                    toast({ title: 'Promotion Added' });
+                    setFormOpen(false);
+                    resetForm();
+                })
+                .catch(async (serverError) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: collRef.path,
+                        operation: 'create',
+                        requestResourceData: promoData,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
         }
     }
 
@@ -643,7 +663,7 @@ function SponsorManagementTool() {
                                         <SelectValue placeholder="Select an action" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="url"><Link className="mr-2 h-4 w-4" />Open URL</SelectItem>
+                                        <SelectItem value="url"><LinkIcon className="mr-2 h-4 w-4" />Open URL</SelectItem>
                                         <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
                                     </SelectContent>
                                 </Select>
