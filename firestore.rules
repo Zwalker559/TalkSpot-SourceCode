@@ -17,9 +17,16 @@ service cloud.firestore {
         return userRole == 'Lead-Manager' || userRole == 'Sub-Manager';
     }
 
+    // Allow authenticated users to read any single user document.
+    // This is required for the helper functions (e.g., isManager) to work correctly,
+    // as they need to 'get' the user's role from their profile.
     match /users/{userId} {
-      // Allow any authenticated user to read user profiles (needed for role checks).
-      allow get, list: if request.auth != null;
+      allow get: if request.auth != null;
+    }
+
+    match /users/{userId} {
+      // Allow authenticated users to list profiles for search/display purposes.
+      allow list: if request.auth != null;
       // A user can create their own profile.
       allow create: if request.auth.uid == userId;
       
@@ -28,12 +35,12 @@ service cloud.firestore {
       // A Sub-Manager can only update users with the 'User' role.
       allow update: if request.auth.uid == userId || 
                        isLeadManager(request.auth.uid) ||
-                       (isSubManager(request.auth.uid) && get(/databases/$(database)/documents/users/$(userId)).data.role == 'User');
+                       (isSubManager(request.auth.uid) && resource.data.role == 'User');
 
       // A Lead-Manager can delete any user.
       // A Sub-Manager can only delete users with the 'User' role.
       allow delete: if isLeadManager(request.auth.uid) ||
-                       (isSubManager(request.auth.uid) && get(/databases/$(database)/documents/users/$(userId)).data.role == 'User');
+                       (isSubManager(request.auth.uid) && resource.data.role == 'User');
     }
 
     match /user_lookups/{lookupId} {
@@ -64,7 +71,7 @@ service cloud.firestore {
     }
 
     match /Sponsorships/{sponsorshipId} {
-      // Only managers can read or write to the sponsorships collection.
+      // Only managers can read, list, or write to the sponsorships collection.
       allow read, write: if isManager(request.auth.uid);
     }
   }
