@@ -4,41 +4,46 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isLeadManager(userId) {
-      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
-      return userRole == 'Lead-Manager';
-    }
-
-    function isSubManager(userId) {
-      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
-      return userRole == 'Sub-Manager';
-    }
-    
+    // Helper Functions
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    function isManager(userId) {
-      let userRole = get(/databases/$(database)/documents/users/$(userId)).data.role;
-      return userRole == 'Lead-Manager' || userRole == 'Sub-Manager';
+
+    function isLeadManager() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
     }
 
+    function isSubManager() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager';
+    }
+
+    function isManager() {
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return role == 'Lead-Manager' || role == 'Sub-Manager';
+    }
+
+    // Collection Rules
     match /users/{userId} {
+      // CRITICAL: Allow any authenticated user to GET their own user document.
+      // This is required for role-checking functions (isManager, etc.) to work.
       allow get: if request.auth != null;
       allow list: if request.auth != null;
+      
       allow create: if isOwner(userId);
+      
       allow update: if isOwner(userId) || 
-                       isLeadManager(request.auth.uid) ||
-                       (isSubManager(request.auth.uid) && resource.data.role == 'User');
-      allow delete: if isLeadManager(request.auth.uid) || 
-                       (isSubManager(request.auth.uid) && resource.data.role == 'User');
+                       (isLeadManager() && isOwner(userId) == false) ||
+                       (isSubManager() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'User');
+                       
+      allow delete: if (isLeadManager() && isOwner(userId) == false) ||
+                       (isSubManager() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'User');
     }
 
     match /user_lookups/{lookupId} {
       allow read: if true;
       allow create: if isOwner(request.resource.data.uid);
-      allow update: if isOwner(request.resource.data.uid) || isManager(request.auth.uid);
-      allow delete: if isManager(request.auth.uid);
+      allow update: if isOwner(request.resource.data.uid) || isManager();
+      allow delete: if isManager();
     }
     
     match /password_recovery/{userId} {
@@ -62,7 +67,7 @@ service cloud.firestore {
     }
 
     match /Sponsorships/{sponsorshipId} {
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+      allow read, write: if isManager();
     }
   }
 }
