@@ -431,9 +431,13 @@ function SponsorManagementTool() {
             // Sort by creation date, newest first
             setPromotions(promoList.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
             setLoading(false);
+        }, (error) => {
+            console.error("Error fetching sponsorships:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch sponsorships. Check console for details.'});
+            setLoading(false);
         });
         return () => unsubscribe();
-    }, [firestore]);
+    }, [firestore, toast]);
     
     const resetForm = () => {
         setTitle('');
@@ -499,7 +503,7 @@ function SponsorManagementTool() {
             return;
         }
 
-        const promoData: Omit<Promotion, 'id'> = {
+        const promoData: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
             title,
             type,
             content,
@@ -508,16 +512,15 @@ function SponsorManagementTool() {
             popupContent: actionType === 'popup' ? popupContent : '',
             displayWeight: Number(displayWeight) || 1,
             status: editingPromo?.status || 'active',
-            createdAt: editingPromo?.createdAt || serverTimestamp(),
         };
 
         try {
             if (editingPromo) {
                 // When updating, we don't want to overwrite the original createdAt timestamp
-                const { createdAt, ...updateData } = promoData;
-                await updateDoc(doc(firestore, 'Sponsorships', editingPromo.id), updateData);
+                await updateDoc(doc(firestore, 'Sponsorships', editingPromo.id), promoData);
                 toast({ title: 'Promotion Updated' });
             } else {
+                promoData.createdAt = serverTimestamp();
                 await addDoc(collection(firestore, 'Sponsorships'), promoData);
                 toast({ title: 'Promotion Added' });
             }
@@ -714,3 +717,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
