@@ -50,7 +50,8 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
   }
 }
