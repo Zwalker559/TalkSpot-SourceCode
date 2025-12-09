@@ -17,14 +17,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager';
     }
 
-    function isManager() {
-      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return role == 'Lead-Manager' || role == 'Sub-Manager';
-    }
-
     // Collection Rules
     match /users/{userId} {
-      // Allow any authenticated user to read user data. This is CRITICAL for role-checking functions.
+      // Allow any authenticated user to read user data for role-checking.
       allow read: if request.auth != null;
       
       allow create: if isOwner(userId);
@@ -40,8 +35,8 @@ service cloud.firestore {
     match /user_lookups/{lookupId} {
       allow read: if true;
       allow create: if isOwner(request.resource.data.uid);
-      allow update: if isOwner(request.resource.data.uid) || isManager();
-      allow delete: if isManager();
+      allow update: if isOwner(request.resource.data.uid) || isLeadManager() || isSubManager();
+      allow delete: if isLeadManager() || isSubManager();
     }
     
     match /password_recovery/{userId} {
@@ -65,7 +60,7 @@ service cloud.firestore {
     }
 
     match /Sponsorships/{sponsorshipId} {
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+      allow read, write: if isLeadManager() || isSubManager();
     }
   }
 }
