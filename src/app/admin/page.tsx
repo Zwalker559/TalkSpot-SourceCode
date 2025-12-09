@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare } from 'lucide-react';
@@ -99,7 +100,8 @@ function UserManagementTool() {
     if (!firestore) return;
     setLoading(true);
     
-    const unsubscribe = onSnapshot(collection(firestore, 'users'), (snapshot) => {
+    const usersColRef = collection(firestore, 'users');
+    const unsubscribe = onSnapshot(usersColRef, (snapshot) => {
       const userList: UserProfile[] = [];
       snapshot.forEach(doc => {
         const data = doc.data();
@@ -115,6 +117,13 @@ function UserManagementTool() {
       });
       setUsers(userList);
       setLoading(false);
+    }, (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: usersColRef.path,
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setLoading(false);
     });
 
     return () => unsubscribe();
@@ -128,6 +137,12 @@ function UserManagementTool() {
                 if (doc.exists()) {
                     setCurrentUserRole(doc.data().role);
                 }
+            }, (serverError) => {
+                 const permissionError = new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'get',
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
             return () => unsubscribe();
         }
@@ -204,25 +219,28 @@ function UserManagementTool() {
   const confirmRemoveUser = async () => {
      if (!firestore || !userToRemove) return;
 
-    try {
-        const batch = writeBatch(firestore);
-
-        const userDocRef = doc(firestore, 'users', userToRemove.uid);
-        batch.delete(userDocRef);
-
-        const lookupDocRef = doc(firestore, 'user_lookups', userToRemove.uid);
-        batch.delete(lookupDocRef);
-        
-        await batch.commit();
-
+    const batch = writeBatch(firestore);
+    const userDocRef = doc(firestore, 'users', userToRemove.uid);
+    const lookupDocRef = doc(firestore, 'user_lookups', userToRemove.uid);
+    
+    batch.delete(userDocRef);
+    batch.delete(lookupDocRef);
+    
+    batch.commit()
+      .then(() => {
         toast({ title: 'User Removed', description: `${userToRemove.displayName} has been removed.` });
-    } catch (error) {
-        console.error("Error removing user:", error);
-        toast({ variant: 'destructive', title: 'Error', description: "Could not remove user. Note: True user deletion from Auth requires a server-side function." });
-    } finally {
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: `batch delete on /users/${userToRemove.uid} and /user_lookups/${userToRemove.uid}`,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
         setRemoveDialogOpen(false);
         setUserToRemove(null);
-    }
+      });
   };
   
   const handleSaveChanges = async () => {
@@ -236,17 +254,19 @@ function UserManagementTool() {
     const lookupDocRef = doc(firestore, 'user_lookups', userToEdit.uid);
 
     const batch = writeBatch(firestore);
-    batch.update(userDocRef, { displayName: newDisplayName });
-    batch.update(lookupDocRef, { displayName: newDisplayName });
+    const data = { displayName: newDisplayName };
+    batch.update(userDocRef, data);
+    batch.update(lookupDocRef, data);
+
     batch.commit()
         .then(() => {
              toast({ title: 'Success', description: 'User details updated.' });
         })
         .catch((err) => {
             const permissionError = new FirestorePermissionError({
-                path: `/users and /user_lookups`,
+                path: `/users/${userToEdit.uid} and /user_lookups/${userToEdit.uid}`,
                 operation: 'update',
-                requestResourceData: { displayName: newDisplayName },
+                requestResourceData: data,
             });
             errorEmitter.emit('permission-error', permissionError);
         })
@@ -442,7 +462,8 @@ function SponsorManagementTool() {
     useEffect(() => {
         if (!firestore) return;
         setLoading(true);
-        const unsubscribe = onSnapshot(collection(firestore, 'Sponsorships'), snapshot => {
+        const sponsorshipsColRef = collection(firestore, 'Sponsorships');
+        const unsubscribe = onSnapshot(sponsorshipsColRef, snapshot => {
             const promoList: Promotion[] = [];
             snapshot.forEach(doc => {
                 promoList.push({ id: doc.id, ...doc.data() } as Promotion);
@@ -450,9 +471,12 @@ function SponsorManagementTool() {
             // Sort by creation date, newest first
             setPromotions(promoList.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
             setLoading(false);
-        }, (error) => {
-            console.error("Error fetching sponsorships:", error);
-            toast({ variant: 'destructive', title: 'Error Fetching Promotions', description: 'You do not have permission to view sponsorships. Please contact an administrator.'});
+        }, (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: sponsorshipsColRef.path,
+                operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
             setLoading(false);
         });
         return () => unsubscribe();
@@ -769,3 +793,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
