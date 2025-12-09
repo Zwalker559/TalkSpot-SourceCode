@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload } from 'lucide-react';
@@ -540,9 +541,6 @@ function SponsorManagementTool() {
             reader.onload = (loadEvent) => {
                 const result = loadEvent.target?.result as string;
                 setImageBase64(result);
-                 if (type === 'image') {
-                    setContent(result); // Also update content to ensure it's not empty
-                }
             };
             reader.readAsDataURL(file);
         }
@@ -591,24 +589,31 @@ function SponsorManagementTool() {
     const handleSave = () => {
         if (!firestore) return;
 
-        let finalContent: string;
-        if (type === 'image') {
-            if (!imageBase64 && editingPromo) {
-                finalContent = editingPromo.content; // Keep old image if none is uploaded
-            } else if (imageBase64) {
-                finalContent = imageBase64;
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.'});
-                return;
-            }
-        } else {
-            finalContent = content;
-        }
-
-        if (!title || (type === 'text' && !finalContent)) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Title and Content are required for text promotions.'});
+        // --- Validation ---
+        if (!title.trim()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Title is required.' });
             return;
         }
+
+        let finalContent: string;
+
+        if (type === 'image') {
+            if (imageBase64) {
+                finalContent = imageBase64;
+            } else if (editingPromo?.content) {
+                finalContent = editingPromo.content; // Keep old image if a new one isn't uploaded
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.' });
+                return;
+            }
+        } else { // type === 'text'
+            if (!content.trim()) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Ad Text is required for text-type promotions.' });
+                return;
+            }
+            finalContent = content;
+        }
+        // --- End Validation ---
 
         const promoData: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
             title,
@@ -688,11 +693,19 @@ function SponsorManagementTool() {
                             ) : promotions.length === 0 ? (
                                 <TableRow><TableCell colSpan={6} className="text-center">No promotions yet.</TableCell></TableRow>
                             ) : (
-                                promotions.map(promo => (
+                                promotions.map(promo => {
+                                    const isInvalidImageSrc = promo.type === 'image' && (!promo.content || (!promo.content.startsWith('data:image') && !promo.content.startsWith('http')));
+                                    return (
                                     <TableRow key={promo.id}>
                                         <TableCell className="font-medium flex items-center gap-3">
                                             {promo.type === 'image' ? (
-                                                <Image src={promo.content} alt={promo.title} width={40} height={40} className="rounded-md object-cover aspect-square"/>
+                                                isInvalidImageSrc ? (
+                                                     <div className="w-10 h-10 flex items-center justify-center bg-destructive/20 rounded-md">
+                                                        <ImageIcon className="h-5 w-5 text-destructive" />
+                                                    </div>
+                                                ) : (
+                                                    <Image src={promo.content} alt={promo.title} width={40} height={40} className="rounded-md object-cover aspect-square"/>
+                                                )
                                             ) : (
                                                 <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
                                                     <FileText className="h-5 w-5 text-muted-foreground" />
@@ -729,7 +742,7 @@ function SponsorManagementTool() {
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
-                                ))
+                                )})
                             )}
                         </TableBody>
                     </Table>
