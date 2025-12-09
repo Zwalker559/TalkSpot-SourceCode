@@ -7,26 +7,38 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+    
+    function isManager() {
+      return getUserRole(request.auth.uid) in ['Lead-Manager', 'Sub-Manager'];
+    }
+    
+    function isLeadManager() {
+      return getUserRole(request.auth.uid) == 'Lead-Manager';
+    }
 
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create: if isOwner(userId);
-      // Allow users to update their own profile, and allow managers to update profiles of lower-level users.
+      // Allow users to update their own profile.
+      // Allow managers to update profiles of lower-level users.
       allow update: if isOwner(userId) || 
-                    (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager' && resource.data.role != 'Lead-Manager') ||
-                    (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User');
+                    (isLeadManager() && getUserRole(userId) != 'Lead-Manager') ||
+                    (getUserRole(request.auth.uid) == 'Sub-Manager' && getUserRole(userId) == 'User');
       
       // Allow managers to delete lower-level users.
-      allow delete: if (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager' && resource.data.role != 'Lead-Manager') ||
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User');
+      allow delete: if (isLeadManager() && getUserRole(userId) != 'Lead-Manager') ||
+                       (getUserRole(request.auth.uid) == 'Sub-Manager' && getUserRole(userId) == 'User');
     }
 
     match /user_lookups/{lookupId} {
       allow read: if true;
       allow create: if isOwner(request.resource.data.uid);
-      allow update: if isOwner(request.resource.data.uid) ||
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
-      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+      allow update: if isOwner(request.resource.data.uid) || isManager();
+      allow delete: if isManager();
     }
 
     match /password_recovery/{userId} {
@@ -53,7 +65,7 @@ service cloud.firestore {
       // Any authenticated user can read sponsorships.
       allow read: if request.auth != null;
       // Only managers can create, update, or delete sponsorships.
-      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+      allow write: if isManager();
     }
   }
 }
