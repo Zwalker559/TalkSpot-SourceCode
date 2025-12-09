@@ -20,7 +20,7 @@
                 },
                 "photoURL": {
                     "type": "string",
-                    "description": "A Base64 data URI of the user's profile picture."
+                    "description": "The URL of the user's profile picture. Can be a standard URL or a Base64 Data URI."
                 },
                 "textingId": {
                     "type": "string",
@@ -77,6 +77,62 @@
                 "textingId",
                 "visibility"
             ]
+        },
+        "promotion": {
+            "title": "Promotion",
+            "description": "An advertisement or promotion to be displayed in the app.",
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "The title of the promotion."
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["text", "image"],
+                    "description": "The type of promotion."
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The ad text or a URL/Data URI to the ad image."
+                },
+                "logoUrl": {
+                    "type": "string",
+                    "description": "A URL/Data URI to a small logo for text-based ads."
+                },
+                 "actionType": {
+                    "type": "string",
+                    "enum": ["url", "popup", "enlarge"],
+                    "description": "The action to perform when the promotion is clicked."
+                },
+                "location": {
+                    "type": "string",
+                    "enum": ["header", "sidebar", "both"],
+                    "description": "Where the promotion should be displayed."
+                },
+                "linkUrl": {
+                    "type": "string",
+                    "description": "The URL the promotion links to (if actionType is 'url')."
+                },
+                "popupContent": {
+                    "type": "string",
+                    "description": "The informational text to show in a pop-up (if actionType is 'popup')."
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "disabled"],
+                    "description": "The current status of the promotion."
+                },
+                "displayWeight": {
+                    "type": "number",
+                    "description": "A number representing the chance of this promotion being displayed. Higher is more likely."
+                },
+                "createdAt": {
+                    "$ref": "#/entities/timestamp",
+                    "description": "Timestamp of when the promotion was created."
+                }
+            },
+            "required": ["title", "type", "content", "actionType", "location", "status", "displayWeight"]
         },
         "chatRequest": {
             "title": "Chat Request",
@@ -224,6 +280,12 @@
                 "$ref": "#/entities/message"
             },
             "description": "All messages within a specific conversation."
+        },
+        "/Sponsorships/{sponsorshipId}": {
+            "schema": {
+                "$ref": "#/entities/promotion"
+            },
+            "description": "Stores all sponsor promotions and advertisements."
         }
     }
 }
