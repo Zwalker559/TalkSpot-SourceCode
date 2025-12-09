@@ -495,9 +495,7 @@ function UserManagementTool() {
           </div>
         </div>
         <DialogFooter>
-            <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-            </DialogClose>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>Cancel</Button>
           <Button onClick={handlePasswordSave}>Save Password</Button>
         </DialogFooter>
       </DialogContent>
