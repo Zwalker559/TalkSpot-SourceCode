@@ -537,7 +537,6 @@ function SponsorManagementTool() {
             reader.onload = (loadEvent) => {
                 const result = loadEvent.target?.result as string;
                 setImageBase64(result);
-                setContent(result);
             };
             reader.readAsDataURL(file);
         }
@@ -585,15 +584,21 @@ function SponsorManagementTool() {
     
     const handleSave = () => {
         if (!firestore) return;
-        if (!title || !content) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Title and Content are required.'});
+        
+        let finalContent = content;
+        if (type === 'image' && imageBase64) {
+            finalContent = imageBase64;
+        }
+
+        if (!title || !finalContent) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Title and Content (or a selected image) are required.'});
             return;
         }
 
         const promoData: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
             title,
             type,
-            content,
+            content: finalContent,
             actionType,
             linkUrl: actionType === 'url' ? linkUrl : '',
             popupContent: actionType === 'popup' ? popupContent : '',
