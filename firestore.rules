@@ -15,12 +15,12 @@ service cloud.firestore {
     function isManager() {
       // Check if the user document exists and has a role before trying to access it.
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             getUserData(request.auth.uid).role in ['Lead-Manager', 'Sub-Manager'];
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
     
     function isLeadManager() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             getUserData(request.auth.uid).role == 'Lead-Manager';
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
     }
 
     match /users/{userId} {
@@ -30,11 +30,11 @@ service cloud.firestore {
       // Allow managers to update profiles of lower-level users.
       allow update: if isOwner(userId) || 
                     (isLeadManager() && getUserData(userId).role != 'Lead-Manager') ||
-                    (getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
+                    (isManager() && getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
       
       // Allow managers to delete lower-level users.
       allow delete: if (isLeadManager() && getUserData(userId).role != 'Lead-Manager') ||
-                       (getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
+                       (isManager() && getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
     }
 
     match /user_lookups/{lookupId} {
