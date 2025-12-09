@@ -299,9 +299,8 @@ function UserManagementTool() {
       await resetPassword({ uid: userToEdit.uid, newPassword });
       toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.' });
+      toast({ variant: 'destructive', title: 'Error', description: `Failed to update password: ${error.message}` });
     } finally {
-      // This will run regardless of success or failure
       setPasswordDialogOpen(false);
       setUserToEdit(null);
       setNewPassword('');

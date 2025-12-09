@@ -9,18 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import * as admin from 'firebase-admin';
-
-// Initialize Firebase Admin SDK if not already initialized
-try {
-  if (!admin.apps.length) {
-    admin.initializeApp();
-  }
-} catch (error: any) {
-    console.error("Firebase Admin SDK initialization error:", error);
-    // Throw a more specific error to help with debugging
-    throw new Error(`Firebase Admin SDK failed to initialize: ${error.message}`);
-}
+import admin from '@/firebase/admin';
 
 
 export const ResetPasswordInputSchema = z.object({
@@ -46,12 +35,19 @@ const resetPasswordFlow = ai.defineFlow(
       return { success: true, message: 'Password updated successfully.' };
     } catch (error: any) {
       console.error(`Failed to update password for user ${uid}:`, error);
-      throw new Error(`Server-side error: ${error.message}`);
+      // It's better to throw a specific error or return a structured error response
+      // For now, we will return a failure message that the client can handle.
+      return { success: false, message: error.message || 'An unknown server error occurred.' };
     }
   }
 );
 
 
 export async function resetPassword(input: ResetPasswordInput): Promise<{ success: boolean, message: string }> {
-  return await resetPasswordFlow(input);
+    const result = await resetPasswordFlow(input);
+    if (!result.success) {
+        // Throw an error to be caught by the client-side .catch() block
+        throw new Error(result.message);
+    }
+    return result;
 }
