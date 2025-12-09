@@ -34,7 +34,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import PromotionsCarousel from './PromotionsCarousel';
 
 // Types
 type ParticipantDetails = {
@@ -416,8 +415,7 @@ export default function ChatClient() {
     <div className="grid grid-cols-[300px_1fr] h-full gap-4">
       {/* Sidebar */}
       <div className="flex flex-col border-r h-full overflow-hidden">
-        <div className="p-4 border-b space-y-4">
-           <PromotionsCarousel />
+        <div className="p-4 border-b">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
