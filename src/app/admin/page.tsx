@@ -598,14 +598,11 @@ function SponsorManagementTool() {
         let finalContent: string;
 
         if (type === 'image') {
-            if (imageBase64) {
-                finalContent = imageBase64;
-            } else if (editingPromo?.content) {
-                finalContent = editingPromo.content; // Keep old image if a new one isn't uploaded
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.' });
+            if (!imageBase64) {
+                 toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.' });
                 return;
             }
+            finalContent = imageBase64;
         } else { // type === 'text'
             if (!content.trim()) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Ad Text is required for text-type promotions.' });
@@ -876,3 +873,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
