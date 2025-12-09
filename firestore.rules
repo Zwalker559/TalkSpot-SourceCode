@@ -9,15 +9,15 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Allow any authenticated user to read user profiles.
+      // Allow any authenticated user to read any user profile.
       // This is necessary for role checks to function correctly.
       allow read: if request.auth != null;
 
       // Users can create and update their own profiles.
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-
-      // Managers can also update or delete lower-level users.
+      
+      // Allow managers to update or delete lower-level users.
       allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
       allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User';
 
@@ -52,8 +52,8 @@ service cloud.firestore {
        allow read, delete: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
        allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
-
-    // Correct rule for Sponsorships
+    
+    // Correct rule for Sponsorships collection
     match /Sponsorships/{sponsorshipId} {
       allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
