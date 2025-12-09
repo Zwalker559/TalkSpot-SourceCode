@@ -290,21 +290,22 @@ function UserManagementTool() {
       toast({ variant: 'destructive', title: 'Error', description: 'Password cannot be empty.' });
       return;
     }
-     if (newPassword.length < 6) {
+    if (newPassword.length < 6) {
       toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
       return;
     }
 
-    resetPassword({ uid: userToEdit.uid, newPassword })
-      .then(() => {
-        toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
-        setPasswordDialogOpen(false);
-        setUserToEdit(null);
-        setNewPassword('');
-      })
-      .catch((error: any) => {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.' });
-      });
+    try {
+      await resetPassword({ uid: userToEdit.uid, newPassword });
+      toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.' });
+    } finally {
+      // This will run regardless of success or failure
+      setPasswordDialogOpen(false);
+      setUserToEdit(null);
+      setNewPassword('');
+    }
   };
 
 

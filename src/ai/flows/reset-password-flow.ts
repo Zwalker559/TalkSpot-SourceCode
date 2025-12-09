@@ -12,9 +12,16 @@ import { z } from 'zod';
 import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
-  admin.initializeApp();
+try {
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  }
+} catch (error: any) {
+    console.error("Firebase Admin SDK initialization error:", error);
+    // Throw a more specific error to help with debugging
+    throw new Error(`Firebase Admin SDK failed to initialize: ${error.message}`);
 }
+
 
 export const ResetPasswordInputSchema = z.object({
   uid: z.string().describe('The UID of the user whose password needs to be reset.'),
