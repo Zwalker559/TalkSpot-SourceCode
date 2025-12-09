@@ -17,9 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useFirestore } from '@/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { errorEmitter, FirestorePermissionError } from '@/firebase';
+import promotionsData from '@/lib/promotions.json';
 
 type Promotion = {
   id: string;
@@ -36,54 +34,30 @@ type Promotion = {
 };
 
 export default function SidebarPromotions() {
-  const firestore = useFirestore();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [api, setApi] = useState<CarouselApi>();
   const [popupData, setPopupData] = useState<{ title: string; content: string } | null>(null);
   const [enlargeImage, setEnlargeImage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!firestore) return;
-
-    const sponsorshipsColRef = collection(firestore, 'Sponsorships');
-    const q = query(
-      sponsorshipsColRef,
-      where('status', '==', 'active')
+    const allActivePromos = (promotionsData.promotions as Promotion[]).filter(
+      (promo) => promo.status === 'active'
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const allActivePromos = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-        })) as Promotion[];
-
-        // Filter for location on the client side
-        const sidebarPromos = allActivePromos.filter(promo => 
-            promo.location === 'sidebar' || promo.location === 'both'
-        );
-
-        setPromotions(sidebarPromos.sort((a, b) => b.displayWeight - a.displayWeight));
-        }, (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: sponsorshipsColRef.path,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        }
+    const sidebarPromos = allActivePromos.filter(
+      (promo) => promo.location === 'sidebar' || promo.location === 'both'
     );
-
-    return () => unsubscribe();
-  }, [firestore]);
+    setPromotions(sidebarPromos.sort((a, b) => b.displayWeight - a.displayWeight));
+  }, []);
 
   const handlePromoClick = (e: React.MouseEvent, promo: Promotion) => {
-    const target = e.target as HTMLElement;
+    const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const third = rect.width / 3;
 
     if (clickX < third) {
       api?.scrollPrev();
-    } else if (clickX > 2 * third) {
+    } else if (clickX > rect.width - third) {
       api?.scrollNext();
     } else {
       // Center click
@@ -157,3 +131,5 @@ export default function SidebarPromotions() {
     </>
   );
 }
+
+    

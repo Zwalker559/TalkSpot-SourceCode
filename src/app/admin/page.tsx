@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/table';
 import { useEffect, useState, useRef } from 'react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
@@ -49,6 +49,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
 import { resetPassword } from '@/ai/flows/reset-password-flow';
+import promotionsData from '@/lib/promotions.json';
+import { updatePromotions } from './actions';
 
 
 type UserProfile = {
@@ -66,14 +68,17 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
-    logoUrl?: string; // New field for text ad logos
+    logoUrl?: string; 
     actionType: 'url' | 'popup' | 'enlarge';
     linkUrl?: string;
     popupContent?: string;
     status: 'active' | 'disabled';
     displayWeight: number;
     location: 'header' | 'sidebar' | 'both';
-    createdAt?: any;
+    createdAt?: {
+        seconds: number;
+        nanoseconds: number;
+    };
 }
 
 const ROLES = ['User', 'Sub-Manager', 'Lead-Manager'];
@@ -506,10 +511,9 @@ function UserManagementTool() {
 }
 
 function SponsorManagementTool() {
-    const firestore = useFirestore();
     const { toast } = useToast();
-    const [promotions, setPromotions] = useState<Promotion[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [promotions, setPromotions] = useState<Promotion[]>(promotionsData.promotions);
+    const [loading, setLoading] = useState(false);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -531,29 +535,6 @@ function SponsorManagementTool() {
     const [displayWeight, setDisplayWeight] = useState(1);
     const [imageBase64, setImageBase64] = useState<string | null>(null);
 
-
-    useEffect(() => {
-        if (!firestore) return;
-        setLoading(true);
-        const sponsorshipsColRef = collection(firestore, 'Sponsorships');
-        const unsubscribe = onSnapshot(sponsorshipsColRef, snapshot => {
-            const promoList: Promotion[] = [];
-            snapshot.forEach(doc => {
-                promoList.push({ id: doc.id, ...doc.data() } as Promotion);
-            });
-            // Sort by creation date, newest first
-            setPromotions(promoList.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
-            setLoading(false);
-        }, (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: sponsorshipsColRef.path,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, [firestore, toast]);
     
     const resetForm = () => {
         setTitle('');
@@ -625,47 +606,38 @@ function SponsorManagementTool() {
 
 
     const confirmDelete = async () => {
-        if (!firestore || !promoToDelete) return;
-        const docRef = doc(firestore, 'Sponsorships', promoToDelete.id);
-        deleteDoc(docRef)
-            .then(() => {
-                toast({ title: "Promotion Deleted" });
-                 setDeleteDialogOpen(false);
-                setPromoToDelete(null);
-            })
-            .catch((serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                    path: docRef.path,
-                    operation: 'delete',
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                 setDeleteDialogOpen(false);
-                setPromoToDelete(null);
-            });
+        if (!promoToDelete) return;
+        setLoading(true);
+        const newPromotions = promotions.filter(p => p.id !== promoToDelete.id);
+        try {
+            await updatePromotions(newPromotions);
+            setPromotions(newPromotions);
+            toast({ title: "Promotion Deleted" });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setLoading(false);
+            setDeleteDialogOpen(false);
+            setPromoToDelete(null);
+        }
     }
 
     const handleStatusToggle = async (promo: Promotion) => {
-        if (!firestore) return;
+        setLoading(true);
         const newStatus = promo.status === 'active' ? 'disabled' : 'active';
-        const docRef = doc(firestore, 'Sponsorships', promo.id);
-        const data = { status: newStatus };
-        updateDoc(docRef, data)
-            .then(() => {
-                toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
-            })
-            .catch((serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: docRef.path,
-                    operation: 'update',
-                    requestResourceData: data,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+        const newPromotions = promotions.map(p => p.id === promo.id ? { ...p, status: newStatus } : p);
+        try {
+            await updatePromotions(newPromotions);
+            setPromotions(newPromotions);
+            toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setLoading(false);
+        }
     };
     
-   const handleSave = () => {
-        if (!firestore) return;
-
+   const handleSave = async () => {
         if (!title.trim()) {
             toast({ variant: 'destructive', title: 'Error', description: 'Title is required.' });
             return;
@@ -694,41 +666,52 @@ function SponsorManagementTool() {
             }
         }
         
-        const promoData: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
-            title,
-            type,
-            content: finalContent,
-            logoUrl: type === 'text' ? logoUrl : '',
-            actionType: finalActionType,
-            linkUrl: finalActionType === 'url' ? linkUrl : '',
-            popupContent: finalActionType === 'popup' ? popupContent : '',
-            location: location,
-            displayWeight: Number(displayWeight) || 1,
-            status: editingPromo?.status || 'active',
-        };
+        setLoading(true);
+        let newPromotions: Promotion[];
+        if (editingPromo) {
+            newPromotions = promotions.map(p => p.id === editingPromo.id ? {
+                ...p,
+                title,
+                type,
+                content: finalContent,
+                logoUrl: type === 'text' ? logoUrl : '',
+                actionType: finalActionType,
+                linkUrl: finalActionType === 'url' ? linkUrl : '',
+                popupContent: finalActionType === 'popup' ? popupContent : '',
+                location: location,
+                displayWeight: Number(displayWeight) || 1,
+            } : p);
+        } else {
+            const newPromo: Promotion = {
+                id: new Date().getTime().toString(), // Simple unique ID
+                title,
+                type,
+                content: finalContent,
+                logoUrl: type === 'text' ? logoUrl : undefined,
+                actionType: finalActionType,
+                linkUrl: finalActionType === 'url' ? linkUrl : undefined,
+                popupContent: finalActionType === 'popup' ? popupContent : undefined,
+                location: location,
+                displayWeight: Number(displayWeight) || 1,
+                status: 'active',
+                createdAt: {
+                    seconds: Math.floor(Date.now() / 1000),
+                    nanoseconds: 0
+                }
+            };
+            newPromotions = [newPromo, ...promotions];
+        }
 
-        const onComplete = () => {
+        try {
+            await updatePromotions(newPromotions);
+            setPromotions(newPromotions);
             toast({ title: editingPromo ? 'Promotion Updated' : 'Promotion Added' });
             setFormOpen(false);
             resetForm();
-        };
-
-        const onError = (serverError: any) => {
-             const permissionError = new FirestorePermissionError({
-                path: editingPromo ? doc(firestore, 'Sponsorships', editingPromo.id).path : collection(firestore, 'Sponsorships').path,
-                operation: editingPromo ? 'update' : 'create',
-                requestResourceData: promoData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        };
-
-        if (editingPromo) {
-            const docRef = doc(firestore, 'Sponsorships', editingPromo.id);
-            updateDoc(docRef, promoData as any).then(onComplete).catch(onError);
-        } else {
-            promoData.createdAt = serverTimestamp();
-            const collRef = collection(firestore, 'Sponsorships');
-            addDoc(collRef, promoData).then(onComplete).catch(onError);
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -956,7 +939,7 @@ function SponsorManagementTool() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { setFormOpen(false); resetForm(); }}>Cancel</Button>
-                        <Button onClick={handleSave}>Save Promotion</Button>
+                        <Button onClick={handleSave} disabled={loading}>{loading ? "Saving..." : "Save Promotion"}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1038,3 +1021,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
