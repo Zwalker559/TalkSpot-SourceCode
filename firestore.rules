@@ -50,7 +50,9 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-      allow get, list: if request.auth != null;
+      // Any authenticated user can read (get single doc) or list (query) sponsorships.
+      allow read: if request.auth != null;
+      // Only managers can create, update, or delete sponsorships.
       allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
   }
