@@ -1,8 +1,6 @@
-
-
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +66,7 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
+    logoUrl?: string; // New field for text ad logos
     actionType: 'url' | 'popup' | 'enlarge';
     linkUrl?: string;
     popupContent?: string;
@@ -511,8 +510,8 @@ function SponsorManagementTool() {
     const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const logoInputRef = useRef<HTMLInputElement>(null);
 
     // Dialog states
     const [isFormOpen, setFormOpen] = useState(false);
@@ -524,6 +523,7 @@ function SponsorManagementTool() {
     const [title, setTitle] = useState('');
     const [type, setType] = useState<'text' | 'image'>('text');
     const [content, setContent] = useState('');
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [actionType, setActionType] = useState<'url' | 'popup' | 'enlarge'>('url');
     const [location, setLocation] = useState<'header' | 'sidebar' | 'both'>('header');
     const [linkUrl, setLinkUrl] = useState('');
@@ -559,6 +559,7 @@ function SponsorManagementTool() {
         setTitle('');
         setType('text');
         setContent('');
+        setLogoUrl(null);
         setActionType('url');
         setLocation('header');
         setLinkUrl('');
@@ -566,9 +567,8 @@ function SponsorManagementTool() {
         setDisplayWeight(1);
         setEditingPromo(null);
         setImageBase64(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+        if (imageInputRef.current) imageInputRef.current.value = '';
+        if (logoInputRef.current) logoInputRef.current.value = '';
     }
 
     const handleAddClick = () => {
@@ -581,6 +581,7 @@ function SponsorManagementTool() {
         setTitle(promo.title);
         setType(promo.type);
         setContent(promo.type === 'text' ? promo.content : '');
+        setLogoUrl(promo.logoUrl || null);
         if (promo.type === 'image') {
             setImageBase64(promo.content);
         } else {
@@ -599,22 +600,24 @@ function SponsorManagementTool() {
         setDeleteDialogOpen(true);
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isLogo: boolean) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 1024 * 1024) { // 1MB limit
-                toast({
-                    variant: 'destructive',
-                    title: 'Image too large',
-                    description: 'Please upload an image smaller than 1MB.',
-                });
+            const sizeLimit = isLogo ? 100 * 1024 : 1024 * 1024; // 100KB for logos, 1MB for main images
+            const errorMsg = isLogo ? 'Logo must be smaller than 100KB.' : 'Image must be smaller than 1MB.';
+            if (file.size > sizeLimit) {
+                toast({ variant: 'destructive', title: 'File too large', description: errorMsg });
                 return;
             }
             const reader = new FileReader();
             reader.onload = (loadEvent) => {
                 const result = loadEvent.target?.result as string;
-                setImageBase64(result);
-                setContent(''); // Clear text content when image is uploaded
+                if (isLogo) {
+                    setLogoUrl(result);
+                } else {
+                    setImageBase64(result);
+                    setContent(''); // Clear text content when image is uploaded
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -695,6 +698,7 @@ function SponsorManagementTool() {
             title,
             type,
             content: finalContent,
+            logoUrl: type === 'text' ? logoUrl : '',
             actionType: finalActionType,
             linkUrl: finalActionType === 'url' ? linkUrl : '',
             popupContent: finalActionType === 'popup' ? popupContent : '',
@@ -774,7 +778,11 @@ function SponsorManagementTool() {
                                                 )
                                             ) : (
                                                 <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
-                                                    <FileText className="h-5 w-5 text-muted-foreground" />
+                                                    {promo.logoUrl ? (
+                                                        <Image src={promo.logoUrl} alt={promo.title} width={24} height={24} className="rounded-sm object-contain"/>
+                                                    ) : (
+                                                        <FileText className="h-5 w-5 text-muted-foreground" />
+                                                    )}
                                                 </div>
                                             )}
                                             {promo.title}
@@ -816,106 +824,139 @@ function SponsorManagementTool() {
             </Card>
             
             <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>{editingPromo ? 'Edit' : 'Add'} Promotion</DialogTitle>
-                        <DialogDescription>Fill out the details for the promotion.</DialogDescription>
+                        <DialogDescription>Fill out the details and see a live preview of your promotion.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[70vh] pr-6">
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="title">Title</Label>
-                                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
-                            </div>
+                    <div className="grid md:grid-cols-2 gap-8 py-4">
+                        {/* Form Column */}
+                        <ScrollArea className="max-h-[70vh] pr-6">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="title">Title</Label>
+                                    <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Type</Label>
+                                    <Tabs value={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
+                                        <TabsList className="grid w-full grid-cols-2">
+                                            <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Text</TabsTrigger>
+                                            <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Image</TabsTrigger>
+                                        </TabsList>
+                                    </Tabs>
+                                </div>
 
-                             <div className="space-y-2">
-                                <Label>Location</Label>
-                                <Select value={location} onValueChange={(v) => setLocation(v as 'header' | 'sidebar' | 'both')}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a location" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="header">Header Carousel</SelectItem>
-                                        <SelectItem value="sidebar">Sidebar</SelectItem>
-                                        <SelectItem value="both">Both</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <Label>Type</Label>
-                                <Tabs defaultValue={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2">
-                                        <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Text</TabsTrigger>
-                                        <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Image</TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
-                            </div>
-                           <div className="space-y-2">
                                 {type === 'image' ? (
-                                    <>
+                                    <div className="space-y-2">
                                         <Label htmlFor="content">Image</Label>
-                                        <div className="flex flex-col items-center gap-4">
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                onChange={handleImageUpload}
-                                                className="hidden"
-                                                accept="image/png, image/jpeg, image/gif"
-                                            />
-                                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                                <Upload className="mr-2 h-4 w-4" />
-                                                Upload Image
-                                            </Button>
-                                            {imageBase64 && (
-                                                <div className="mt-2 p-2 border rounded-md w-full aspect-video relative">
-                                                    <Image src={imageBase64} alt="Image preview" layout="fill" objectFit="contain" className="rounded-md" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
+                                        <Button variant="outline" className="w-full" onClick={() => imageInputRef.current?.click()}>
+                                            <Upload className="mr-2 h-4 w-4" /> Upload Image
+                                        </Button>
+                                        <Input type="file" ref={imageInputRef} onChange={(e) => handleImageUpload(e, false)} className="hidden" accept="image/png, image/jpeg, image/gif" />
+                                        <p className="text-sm text-muted-foreground">Recommended: 16:9 ratio. Max 1MB.</p>
+                                    </div>
                                 ) : (
                                     <>
-                                        <Label htmlFor="content">Ad Text</Label>
-                                        <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={'Your ad text here...'} />
+                                        <div className="space-y-2">
+                                            <Label htmlFor="logo">Logo (Optional)</Label>
+                                            <Button variant="outline" className="w-full" onClick={() => logoInputRef.current?.click()}>
+                                                <Building2 className="mr-2 h-4 w-4" /> Upload Logo
+                                            </Button>
+                                            <Input type="file" ref={logoInputRef} onChange={(e) => handleImageUpload(e, true)} className="hidden" accept="image/png, image/jpeg, image/gif" />
+                                            <p className="text-sm text-muted-foreground">Recommended: Square icon. Max 100KB.</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="content">Ad Text</Label>
+                                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={'Your ad text here...'} />
+                                        </div>
                                     </>
                                 )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="action-type">Click Action</Label>
-                                <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup' | 'enlarge')}>
-                                    <SelectTrigger id="action-type">
-                                        <SelectValue placeholder="Select an action" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="url"><LinkIcon className="mr-2 h-4 w-4" />Open URL</SelectItem>
-                                        <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
-                                        {type === 'image' && <SelectItem value="enlarge"><Maximize className="mr-2 h-4 w-4"/>Enlarge Image</SelectItem>}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {actionType === 'url' && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="linkUrl">Link URL</Label>
-                                    <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div className="space-y-2">
+                                        <Label>Location</Label>
+                                        <Select value={location} onValueChange={(v) => setLocation(v as 'header' | 'sidebar' | 'both')}>
+                                            <SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="header">Header Carousel</SelectItem>
+                                                <SelectItem value="sidebar">Sidebar</SelectItem>
+                                                <SelectItem value="both">Both</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="action-type">Click Action</Label>
+                                        <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup' | 'enlarge')}>
+                                            <SelectTrigger id="action-type"><SelectValue placeholder="Select an action" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="url"><LinkIcon className="mr-2 h-4 w-4" />Open URL</SelectItem>
+                                                <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
+                                                {type === 'image' && <SelectItem value="enlarge"><Maximize className="mr-2 h-4 w-4"/>Enlarge Image</SelectItem>}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                            )}
-                            {actionType === 'popup' && (
+                                
+                                {actionType === 'url' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="linkUrl">Link URL</Label>
+                                        <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
+                                    </div>
+                                )}
+                                {actionType === 'popup' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="popupContent">Pop-up Content</Label>
+                                        <Textarea id="popupContent" value={popupContent} onChange={(e) => setPopupContent(e.target.value)} placeholder="Enter the informational text for the pop-up..." />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
-                                    <Label htmlFor="popupContent">Pop-up Content</Label>
-                                    <Textarea id="popupContent" value={popupContent} onChange={(e) => setPopupContent(e.target.value)} placeholder="Enter the informational text for the pop-up..." />
+                                    <Label htmlFor="displayWeight">Display Weight</Label>
+                                    <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
+                                    <p className="text-sm text-muted-foreground">A higher number means a higher chance of being displayed.</p>
                                 </div>
-                            )}
-                            <div className="space-y-2">
-                                <Label htmlFor="displayWeight">Display Weight</Label>
-                                <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
-                                <p className="text-sm text-muted-foreground">A higher number means a higher chance of being displayed.</p>
+                            </div>
+                        </ScrollArea>
+                        
+                        {/* Preview Column */}
+                        <div className="space-y-6">
+                            <div>
+                                <Label className="text-muted-foreground">Header Preview</Label>
+                                <Card className="overflow-hidden bg-muted/50 mt-2">
+                                    <CardContent className="flex items-center justify-center p-2 aspect-[16/7]">
+                                        {type === 'image' ? (
+                                            imageBase64 ? <Image src={imageBase64} alt={title} layout="fill" objectFit="cover" className="rounded-md" /> : <div className="text-muted-foreground text-sm">Upload an image to see a preview</div>
+                                        ) : (
+                                            <div className="text-center p-4 flex flex-col items-center justify-center gap-2">
+                                                {logoUrl && <Image src={logoUrl} alt="logo" width={40} height={40} className="rounded-sm object-contain" />}
+                                                <h3 className="font-bold text-xl">{title || 'Your Title'}</h3>
+                                                <p className="text-md text-foreground/90">{content || 'Your ad text here...'}</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                             <div>
+                                <Label className="text-muted-foreground">Sidebar Preview</Label>
+                                <Card className="overflow-hidden bg-muted/50 mt-2">
+                                    <CardContent className="flex items-center justify-center p-2 aspect-square">
+                                        {type === 'image' ? (
+                                            imageBase64 ? <Image src={imageBase64} alt={title} layout="fill" objectFit="cover" className="rounded-md" /> : <div className="text-muted-foreground text-sm">Upload an image to see a preview</div>
+                                        ) : (
+                                            <div className="text-center p-4 flex flex-col items-center justify-center gap-1">
+                                                {logoUrl && <Image src={logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}
+                                                <h3 className="font-semibold text-lg leading-tight">{title || 'Your Title'}</h3>
+                                                <p className="text-sm text-foreground/80 mt-1">{content || 'Ad text...'}</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
                             </div>
                         </div>
-                    </ScrollArea>
+                    </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { setFormOpen(false); resetForm(); }}>Cancel</Button>
-                        <Button onClick={handleSave}>Save</Button>
+                        <Button onClick={handleSave}>Save Promotion</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -997,5 +1038,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

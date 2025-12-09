@@ -29,6 +29,7 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
+    logoUrl?: string;
     actionType: 'url' | 'popup' | 'enlarge';
     linkUrl?: string;
     popupContent?: string;
@@ -105,8 +106,8 @@ export default function SidebarPromotions() {
                                             <Image src={promo.content} alt={promo.title} layout="fill" objectFit="cover" className="rounded-md" />
                                         </div>
                                     ) : (
-                                        <div className="text-center p-4 flex flex-col items-center justify-center">
-                                            <Newspaper className="h-8 w-8 mb-2 text-muted-foreground" />
+                                        <div className="text-center p-4 flex flex-col items-center justify-center gap-1">
+                                            {promo.logoUrl && <Image src={promo.logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}
                                             <h3 className="font-semibold text-lg leading-tight">{promo.title}</h3>
                                             <p className="text-sm text-foreground/80 mt-1">{promo.content}</p>
                                         </div>

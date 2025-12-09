@@ -97,6 +97,10 @@
                     "type": "string",
                     "description": "The ad text or a URL/Data URI to the ad image."
                 },
+                "logoUrl": {
+                    "type": "string",
+                    "description": "A URL/Data URI to a small logo for text-based ads."
+                },
                  "actionType": {
                     "type": "string",
                     "enum": ["url", "popup", "enlarge"],

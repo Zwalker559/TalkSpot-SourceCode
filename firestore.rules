@@ -13,11 +13,14 @@ service cloud.firestore {
     }
     
     function isManager() {
-      return getUserRole(request.auth.uid) in ['Lead-Manager', 'Sub-Manager'];
+      // Check if the user document exists before trying to access its data.
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
     
     function isLeadManager() {
-      return getUserRole(request.auth.uid) == 'Lead-Manager';
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
     }
 
     match /users/{userId} {

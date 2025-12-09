@@ -32,6 +32,7 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
+    logoUrl?: string;
     actionType: 'url' | 'popup' | 'enlarge';
     linkUrl?: string;
     popupContent?: string;
@@ -117,8 +118,8 @@ export default function PromotionsCarousel() {
                                             <Image src={promo.content} alt={promo.title} layout="fill" objectFit="cover" className="rounded-md" />
                                         </div>
                                     ) : (
-                                        <div className="text-center p-4 flex flex-col items-center justify-center">
-                                            <Newspaper className="h-10 w-10 mb-4 text-muted-foreground" />
+                                        <div className="text-center p-4 flex flex-col items-center justify-center gap-2">
+                                            {promo.logoUrl && <Image src={promo.logoUrl} alt="logo" width={40} height={40} className="rounded-sm object-contain" />}
                                             <h3 className="font-bold text-xl">{promo.title}</h3>
                                             <p className="text-md text-foreground/90">{promo.content}</p>
                                         </div>
