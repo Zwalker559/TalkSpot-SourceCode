@@ -495,6 +495,9 @@ function SponsorManagementTool() {
         setDisplayWeight(1);
         setEditingPromo(null);
         setImageBase64(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
 
     const handleAddClick = () => {
@@ -537,6 +540,9 @@ function SponsorManagementTool() {
             reader.onload = (loadEvent) => {
                 const result = loadEvent.target?.result as string;
                 setImageBase64(result);
+                 if (type === 'image') {
+                    setContent(result); // Also update content to ensure it's not empty
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -584,14 +590,23 @@ function SponsorManagementTool() {
     
     const handleSave = () => {
         if (!firestore) return;
-        
-        let finalContent = content;
-        if (type === 'image' && imageBase64) {
-            finalContent = imageBase64;
+
+        let finalContent: string;
+        if (type === 'image') {
+            if (!imageBase64 && editingPromo) {
+                finalContent = editingPromo.content; // Keep old image if none is uploaded
+            } else if (imageBase64) {
+                finalContent = imageBase64;
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.'});
+                return;
+            }
+        } else {
+            finalContent = content;
         }
 
-        if (!title || !finalContent) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Title and Content (or a selected image) are required.'});
+        if (!title || (type === 'text' && !finalContent)) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Title and Content are required for text promotions.'});
             return;
         }
 
@@ -799,7 +814,7 @@ function SponsorManagementTool() {
                         </div>
                     </ScrollArea>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => { setFormOpen(false); resetForm(); }}>Cancel</Button>
                         <Button onClick={handleSave}>Save</Button>
                     </DialogFooter>
                 </DialogContent>
