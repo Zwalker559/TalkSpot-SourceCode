@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import Image from 'next/image';
+import Autoplay from "embla-carousel-autoplay";
 import {
   Carousel,
   CarouselContent,
@@ -19,10 +21,8 @@ import {
     AlertDialogFooter,
     AlertDialogAction
 } from '@/components/ui/alert-dialog';
-import Image from 'next/image';
-import { Newspaper } from 'lucide-react';
-import Autoplay from "embla-carousel-autoplay";
-import { errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+
 
 type Promotion = {
     id: string;
@@ -40,6 +40,7 @@ type Promotion = {
 
 export default function SidebarPromotions() {
     const firestore = useFirestore();
+    const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [isPopupOpen, setPopupOpen] = useState(false);
     const [popupData, setPopupData] = useState<{ title: string, content: string }>({ title: '', content: '' });
@@ -57,25 +58,24 @@ export default function SidebarPromotions() {
         );
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const activePromos: Promotion[] = [];
-            snapshot.forEach(doc => {
-                activePromos.push({ id: doc.id, ...doc.data() } as Promotion);
+            const activePromos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Promotion));
+            const sortedPromos = activePromos.sort((a, b) => b.displayWeight - a.displayWeight);
+            setPromotions(sortedPromos);
+        }, (error) => {
+            console.error("Firestore error fetching sidebar promotions:", error);
+            toast({
+                variant: "destructive",
+                title: "Could not load promotions",
+                description: "There was an issue fetching promotional content for the sidebar.",
             });
-            setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
-        }, (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: sponsorshipsColRef.path,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
         });
 
         return () => unsubscribe();
-    }, [firestore]);
+    }, [firestore, toast]);
     
     const handlePromoClick = (promo: Promotion) => {
         if (promo.actionType === 'url' && promo.linkUrl) {
-            window.open(promo.linkUrl, '_blank');
+            window.open(promo.linkUrl, '_blank', 'noopener,noreferrer');
         } else if (promo.actionType === 'popup' && promo.popupContent) {
             setPopupData({ title: promo.title, content: promo.popupContent });
             setPopupOpen(true);
@@ -99,7 +99,7 @@ export default function SidebarPromotions() {
                 <CarouselContent>
                     {promotions.map((promo) => (
                         <CarouselItem key={promo.id} onClick={() => handlePromoClick(promo)} className="cursor-pointer">
-                            <Card className="overflow-hidden bg-muted/50 border-dashed">
+                            <Card className="overflow-hidden bg-muted/50 border-dashed hover:border-primary/50 transition-colors">
                                 <CardContent className="flex items-center justify-center p-2 aspect-square">
                                     {promo.type === 'image' ? (
                                         <div className="relative w-full h-full">
@@ -119,7 +119,8 @@ export default function SidebarPromotions() {
                 </CarouselContent>
             </Carousel>
 
-             <AlertDialog open={isPopupOpen} onOpenChange={setPopupOpen}>
+            {/* Alert Dialog for Text Popups */}
+            <AlertDialog open={isPopupOpen} onOpenChange={setPopupOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>{popupData.title}</AlertDialogTitle>
@@ -131,6 +132,7 @@ export default function SidebarPromotions() {
                 </AlertDialogContent>
             </AlertDialog>
             
+            {/* Alert Dialog for Enlarged Images */}
             <AlertDialog open={isImagePopupOpen} onOpenChange={setImagePopupOpen}>
                 <AlertDialogContent className="max-w-3xl">
                      <AlertDialogHeader>

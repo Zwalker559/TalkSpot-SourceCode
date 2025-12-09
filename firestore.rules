@@ -65,7 +65,7 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-      // Anyone can read sponsorships.
+      // Anyone can read sponsorships to ensure they load for all users.
       allow read: if true;
       // Only managers can create, update, or delete sponsorships.
       allow write: if isManager();

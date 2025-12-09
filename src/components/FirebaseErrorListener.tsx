@@ -10,15 +10,15 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: Error) => {
-      console.error('Caught a permission error:', error);
       // In a real app, you might want to log this to a service like Sentry.
-      // For this dev environment, we will throw it to show the Next.js overlay.
+      // We will show a toast in production and throw in development.
       if (process.env.NODE_ENV === 'development') {
+        console.error("Caught a Firestore permission error:", error);
         // Throwing the error here will cause the Next.js error overlay to appear,
         // which is great for debugging security rules.
         throw error;
       } else {
-        // In production, you might want to show a generic toast message.
+        // In production, show a user-friendly toast message.
         toast({
           variant: 'destructive',
           title: 'Permission Denied',

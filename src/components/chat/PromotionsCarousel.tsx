@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import Image from 'next/image';
+import Autoplay from "embla-carousel-autoplay";
 import {
   Carousel,
   CarouselContent,
@@ -21,11 +23,7 @@ import {
     AlertDialogFooter,
     AlertDialogAction
 } from '@/components/ui/alert-dialog';
-import Image from 'next/image';
-import { Newspaper } from 'lucide-react';
-import Autoplay from "embla-carousel-autoplay";
-import { errorEmitter, FirestorePermissionError } from '@/firebase';
-
+import { useToast } from '@/hooks/use-toast';
 
 type Promotion = {
     id: string;
@@ -43,6 +41,7 @@ type Promotion = {
 
 export default function PromotionsCarousel() {
     const firestore = useFirestore();
+    const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [isPopupOpen, setPopupOpen] = useState(false);
     const [popupData, setPopupData] = useState<{ title: string, content: string }>({ title: '', content: '' });
@@ -54,32 +53,30 @@ export default function PromotionsCarousel() {
 
         const sponsorshipsColRef = collection(firestore, 'Sponsorships');
         const q = query(
-            sponsorshipsColRef, 
+            sponsorshipsColRef,
             where('status', '==', 'active'),
             where('location', 'in', ['header', 'both'])
         );
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const activePromos: Promotion[] = [];
-            snapshot.forEach(doc => {
-                activePromos.push({ id: doc.id, ...doc.data() } as Promotion);
+            const activePromos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Promotion));
+            const sortedPromos = activePromos.sort((a, b) => b.displayWeight - a.displayWeight);
+            setPromotions(sortedPromos);
+        }, (error) => {
+            console.error("Firestore error fetching promotions:", error);
+            toast({
+                variant: "destructive",
+                title: "Could not load promotions",
+                description: "There was an issue fetching promotional content. Please check your connection or contact support.",
             });
-            // Simple sort by display weight
-            setPromotions(activePromos.sort((a,b) => b.displayWeight - a.displayWeight));
-        }, (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: sponsorshipsColRef.path,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
         });
 
         return () => unsubscribe();
-    }, [firestore]);
+    }, [firestore, toast]);
     
     const handlePromoClick = (promo: Promotion) => {
         if (promo.actionType === 'url' && promo.linkUrl) {
-            window.open(promo.linkUrl, '_blank');
+            window.open(promo.linkUrl, '_blank', 'noopener,noreferrer');
         } else if (promo.actionType === 'popup' && promo.popupContent) {
             setPopupData({ title: promo.title, content: promo.popupContent });
             setPopupOpen(true);
@@ -89,29 +86,21 @@ export default function PromotionsCarousel() {
         }
     };
 
-
     if (promotions.length === 0) {
-        return null; // Don't render anything if there are no active promotions
+        return null; // Don't render anything if there are no promotions to show
     }
 
     return (
         <>
-            <Carousel 
+            <Carousel
                 className="w-full"
-                opts={{
-                    loop: true,
-                }}
-                 plugins={[
-                    Autoplay({
-                        delay: 3000,
-                        stopOnInteraction: true,
-                    }),
-                ]}
+                opts={{ loop: true, align: "start" }}
+                plugins={[ Autoplay({ delay: 3000, stopOnInteraction: true }) ]}
             >
                 <CarouselContent>
                     {promotions.map((promo) => (
                         <CarouselItem key={promo.id} onClick={() => handlePromoClick(promo)} className="cursor-pointer">
-                            <Card className="overflow-hidden bg-muted/50 border-dashed">
+                            <Card className="overflow-hidden bg-muted/50 border-dashed hover:border-primary/50 transition-colors">
                                 <CardContent className="flex items-center justify-center p-2 aspect-[16/7]">
                                     {promo.type === 'image' ? (
                                         <div className="relative w-full h-full">
@@ -137,13 +126,12 @@ export default function PromotionsCarousel() {
                 )}
             </Carousel>
 
-             <AlertDialog open={isPopupOpen} onOpenChange={setPopupOpen}>
+            {/* Alert Dialog for Text Popups */}
+            <AlertDialog open={isPopupOpen} onOpenChange={setPopupOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>{popupData.title}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {popupData.content}
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>{popupData.content}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setPopupOpen(false)}>Close</AlertDialogAction>
@@ -151,6 +139,7 @@ export default function PromotionsCarousel() {
                 </AlertDialogContent>
             </AlertDialog>
             
+            {/* Alert Dialog for Enlarged Images */}
             <AlertDialog open={isImagePopupOpen} onOpenChange={setImagePopupOpen}>
                 <AlertDialogContent className="max-w-3xl">
                      <AlertDialogHeader>
