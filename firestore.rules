@@ -9,13 +9,20 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
+      // Allow any authenticated user to read user profiles.
+      // This is necessary for role checks to function correctly.
       allow read: if request.auth != null;
+
+      // Users can create and update their own profiles.
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) ||
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager') ||
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User');
-      allow delete: if (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager') ||
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User');
+      allow update: if isOwner(userId);
+
+      // Managers can also update or delete lower-level users.
+      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
+      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User';
+
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager' && resource.data.role != 'Lead-Manager';
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Sub-Manager' && resource.data.role == 'User';
     }
 
     match /user_lookups/{lookupId} {
@@ -46,6 +53,7 @@ service cloud.firestore {
        allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
 
+    // Correct rule for Sponsorships
     match /Sponsorships/{sponsorshipId} {
       allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
