@@ -295,15 +295,16 @@ function UserManagementTool() {
       return;
     }
 
-    try {
-      await resetPassword({ uid: userToEdit.uid, newPassword });
-      toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
-      setPasswordDialogOpen(false);
-      setUserToEdit(null);
-      setNewPassword('');
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.' });
-    }
+    resetPassword({ uid: userToEdit.uid, newPassword })
+      .then(() => {
+        toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
+        setPasswordDialogOpen(false);
+        setUserToEdit(null);
+        setNewPassword('');
+      })
+      .catch((error: any) => {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.' });
+      });
   };
 
 
@@ -622,6 +623,8 @@ function SponsorManagementTool() {
         deleteDoc(docRef)
             .then(() => {
                 toast({ title: "Promotion Deleted" });
+                 setDeleteDialogOpen(false);
+                setPromoToDelete(null);
             })
             .catch((serverError) => {
                  const permissionError = new FirestorePermissionError({
@@ -629,9 +632,7 @@ function SponsorManagementTool() {
                     operation: 'delete',
                 });
                 errorEmitter.emit('permission-error', permissionError);
-            })
-            .finally(() => {
-                setDeleteDialogOpen(false);
+                 setDeleteDialogOpen(false);
                 setPromoToDelete(null);
             });
     }
@@ -662,7 +663,7 @@ function SponsorManagementTool() {
             toast({ variant: 'destructive', title: 'Error', description: 'Title is required.' });
             return;
         }
-
+        
         let finalContent: string;
         let finalActionType = actionType;
 
@@ -672,7 +673,7 @@ function SponsorManagementTool() {
                 return;
             }
             finalContent = imageBase64;
-            if (actionType !== 'url' && actionType !== 'popup' && actionType !== 'enlarge') {
+             if (actionType !== 'url' && actionType !== 'popup' && actionType !== 'enlarge') {
               finalActionType = 'enlarge';
             }
         } else { // type === 'text'
@@ -685,7 +686,7 @@ function SponsorManagementTool() {
                 finalActionType = 'popup';
             }
         }
-
+        
         const promoData: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
             title,
             type,
@@ -758,7 +759,7 @@ function SponsorManagementTool() {
                                     return (
                                     <TableRow key={promo.id}>
                                         <TableCell className="font-medium flex items-center gap-3">
-                                             {promo.type === 'image' ? (
+                                            {promo.type === 'image' ? (
                                                 isInvalidImageSrc ? (
                                                      <div className="w-10 h-10 flex items-center justify-center bg-destructive/20 rounded-md">
                                                         <ImageIcon className="h-5 w-5 text-destructive" />
@@ -976,3 +977,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
