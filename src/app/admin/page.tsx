@@ -1,7 +1,6 @@
-
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -443,6 +442,8 @@ function SponsorManagementTool() {
     const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
 
     // Dialog states
     const [isFormOpen, setFormOpen] = useState(false);
@@ -458,6 +459,8 @@ function SponsorManagementTool() {
     const [linkUrl, setLinkUrl] = useState('');
     const [popupContent, setPopupContent] = useState('');
     const [displayWeight, setDisplayWeight] = useState(1);
+    const [imageBase64, setImageBase64] = useState<string | null>(null);
+
 
     useEffect(() => {
         if (!firestore) return;
@@ -491,6 +494,7 @@ function SponsorManagementTool() {
         setPopupContent('');
         setDisplayWeight(1);
         setEditingPromo(null);
+        setImageBase64(null);
     }
 
     const handleAddClick = () => {
@@ -503,6 +507,9 @@ function SponsorManagementTool() {
         setTitle(promo.title);
         setType(promo.type);
         setContent(promo.content);
+        if (promo.type === 'image') {
+            setImageBase64(promo.content);
+        }
         setActionType(promo.actionType || 'url');
         setLinkUrl(promo.linkUrl || '');
         setPopupContent(promo.popupContent || '');
@@ -514,6 +521,28 @@ function SponsorManagementTool() {
         setPromoToDelete(promo);
         setDeleteDialogOpen(true);
     };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 1024 * 1024) { // 1MB limit
+                toast({
+                    variant: 'destructive',
+                    title: 'Image too large',
+                    description: 'Please upload an image smaller than 1MB.',
+                });
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                const result = loadEvent.target?.result as string;
+                setImageBase64(result);
+                setContent(result);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
 
     const confirmDelete = async () => {
         if (!firestore || !promoToDelete) return;
@@ -708,9 +737,30 @@ function SponsorManagementTool() {
                                     </TabsList>
                                 </Tabs>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="content">{type === 'image' ? 'Image URL' : 'Ad Text'}</Label>
-                                <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={type === 'image' ? 'https://example.com/image.png' : 'Your ad text here...'} />
+                           <div className="space-y-2">
+                                <Label htmlFor="content">{type === 'image' ? 'Image' : 'Ad Text'}</Label>
+                                {type === 'image' ? (
+                                    <div className="flex flex-col items-center gap-4">
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                            accept="image/png, image/jpeg, image/gif"
+                                        />
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            Upload Image
+                                        </Button>
+                                        {imageBase64 && (
+                                            <div className="mt-2 p-2 border rounded-md">
+                                                <Image src={imageBase64} alt="Image preview" width={100} height={100} className="object-contain rounded-md" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={'Your ad text here...'} />
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="action-type">Click Action</Label>
@@ -793,5 +843,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
