@@ -30,7 +30,7 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
-    actionType: 'url' | 'popup';
+    actionType: 'url' | 'popup' | 'enlarge';
     linkUrl?: string;
     popupContent?: string;
     status: 'active' | 'disabled';
@@ -42,6 +42,8 @@ export default function PromotionsCarousel() {
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [isPopupOpen, setPopupOpen] = useState(false);
     const [popupData, setPopupData] = useState<{ title: string, content: string }>({ title: '', content: '' });
+    const [isImagePopupOpen, setImagePopupOpen] = useState(false);
+    const [imagePopupData, setImagePopupData] = useState<{ title: string, src: string }>({ title: '', src: '' });
 
     useEffect(() => {
         if (!firestore) return;
@@ -66,6 +68,9 @@ export default function PromotionsCarousel() {
         } else if (promo.actionType === 'popup' && promo.popupContent) {
             setPopupData({ title: promo.title, content: promo.popupContent });
             setPopupOpen(true);
+        } else if (promo.actionType === 'enlarge' && promo.type === 'image') {
+            setImagePopupData({ title: promo.title, src: promo.content });
+            setImagePopupOpen(true);
         }
     };
 
@@ -92,16 +97,16 @@ export default function PromotionsCarousel() {
                     {promotions.map((promo) => (
                         <CarouselItem key={promo.id} onClick={() => handlePromoClick(promo)} className="cursor-pointer">
                             <Card className="overflow-hidden bg-muted/50 border-dashed">
-                                <CardContent className="flex items-center justify-center p-2 aspect-video">
+                                <CardContent className="flex items-center justify-center p-2 aspect-[16/7]">
                                     {promo.type === 'image' ? (
                                         <div className="relative w-full h-full">
                                             <Image src={promo.content} alt={promo.title} layout="fill" objectFit="cover" className="rounded-md" />
                                         </div>
                                     ) : (
                                         <div className="text-center p-4 flex flex-col items-center justify-center">
-                                            <Newspaper className="h-8 w-8 mb-2 text-muted-foreground" />
-                                            <h3 className="font-semibold text-lg">{promo.title}</h3>
-                                            <p className="text-sm text-muted-foreground">{promo.content}</p>
+                                            <Newspaper className="h-10 w-10 mb-4 text-muted-foreground" />
+                                            <h3 className="font-bold text-xl">{promo.title}</h3>
+                                            <p className="text-md text-foreground/90">{promo.content}</p>
                                         </div>
                                     )}
                                 </CardContent>
@@ -127,6 +132,20 @@ export default function PromotionsCarousel() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setPopupOpen(false)}>Close</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            <AlertDialog open={isImagePopupOpen} onOpenChange={setImagePopupOpen}>
+                <AlertDialogContent className="max-w-3xl">
+                     <AlertDialogHeader>
+                        <AlertDialogTitle>{imagePopupData.title}</AlertDialogTitle>
+                    </AlertDialogHeader>
+                    <div className="flex justify-center items-center p-4">
+                        <Image src={imagePopupData.src} alt={imagePopupData.title} width={800} height={600} className="rounded-md max-w-full h-auto" />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setImagePopupOpen(false)}>Close</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

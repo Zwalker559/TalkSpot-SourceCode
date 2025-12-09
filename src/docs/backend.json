@@ -95,11 +95,11 @@
                 },
                 "content": {
                     "type": "string",
-                    "description": "The ad text or a URL to the ad image."
+                    "description": "The ad text or a URL/Data URI to the ad image."
                 },
                  "actionType": {
                     "type": "string",
-                    "enum": ["url", "popup"],
+                    "enum": ["url", "popup", "enlarge"],
                     "description": "The action to perform when the promotion is clicked."
                 },
                 "linkUrl": {

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,7 +66,7 @@ type Promotion = {
     title: string;
     type: 'text' | 'image';
     content: string;
-    actionType: 'url' | 'popup';
+    actionType: 'url' | 'popup' | 'enlarge';
     linkUrl?: string;
     popupContent?: string;
     status: 'active' | 'disabled';
@@ -456,7 +456,7 @@ function SponsorManagementTool() {
     const [title, setTitle] = useState('');
     const [type, setType] = useState<'text' | 'image'>('text');
     const [content, setContent] = useState('');
-    const [actionType, setActionType] = useState<'url' | 'popup'>('url');
+    const [actionType, setActionType] = useState<'url' | 'popup' | 'enlarge'>('url');
     const [linkUrl, setLinkUrl] = useState('');
     const [popupContent, setPopupContent] = useState('');
     const [displayWeight, setDisplayWeight] = useState(1);
@@ -586,76 +586,72 @@ function SponsorManagementTool() {
             });
     };
     
-    const handleSave = () => {
+   const handleSave = () => {
         if (!firestore) return;
 
-        // --- Validation ---
         if (!title.trim()) {
             toast({ variant: 'destructive', title: 'Error', description: 'Title is required.' });
             return;
         }
 
         let finalContent: string;
+        let finalActionType = actionType;
 
         if (type === 'image') {
             if (!imageBase64) {
-                 toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.' });
+                toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.' });
                 return;
             }
             finalContent = imageBase64;
+            // 'enlarge' is only valid for images
+            if (actionType !== 'url' && actionType !== 'popup' && actionType !== 'enlarge') {
+              finalActionType = 'enlarge';
+            }
         } else { // type === 'text'
             if (!content.trim()) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Ad Text is required for text-type promotions.' });
                 return;
             }
             finalContent = content;
+            // 'enlarge' is not valid for text
+            if (finalActionType === 'enlarge') {
+                finalActionType = 'popup';
+            }
         }
-        // --- End Validation ---
 
         const promoData: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
             title,
             type,
             content: finalContent,
-            actionType,
-            linkUrl: actionType === 'url' ? linkUrl : '',
-            popupContent: actionType === 'popup' ? popupContent : '',
+            actionType: finalActionType,
+            linkUrl: finalActionType === 'url' ? linkUrl : '',
+            popupContent: finalActionType === 'popup' ? popupContent : '',
             displayWeight: Number(displayWeight) || 1,
             status: editingPromo?.status || 'active',
         };
 
+        const onComplete = () => {
+            toast({ title: editingPromo ? 'Promotion Updated' : 'Promotion Added' });
+            setFormOpen(false);
+            resetForm();
+        };
+
+        const onError = (serverError: any) => {
+             const permissionError = new FirestorePermissionError({
+                path: editingPromo ? doc(firestore, 'Sponsorships', editingPromo.id).path : collection(firestore, 'Sponsorships').path,
+                operation: editingPromo ? 'update' : 'create',
+                requestResourceData: promoData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        };
+
         if (editingPromo) {
             const docRef = doc(firestore, 'Sponsorships', editingPromo.id);
-            updateDoc(docRef, promoData)
-                .then(() => {
-                    toast({ title: 'Promotion Updated' });
-                    setFormOpen(false);
-                    resetForm();
-                })
-                .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: docRef.path,
-                        operation: 'update',
-                        requestResourceData: promoData,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
+            updateDoc(docRef, promoData as any).then(onComplete).catch(onError);
         } else {
             promoData.createdAt = serverTimestamp();
             const collRef = collection(firestore, 'Sponsorships');
-            addDoc(collRef, promoData)
-                .then(() => {
-                    toast({ title: 'Promotion Added' });
-                    setFormOpen(false);
-                    resetForm();
-                })
-                .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: collRef.path,
-                        operation: 'create',
-                        requestResourceData: promoData,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
+            addDoc(collRef, promoData).then(onComplete).catch(onError);
         }
     }
 
@@ -768,39 +764,45 @@ function SponsorManagementTool() {
                                 </Tabs>
                             </div>
                            <div className="space-y-2">
-                                <Label htmlFor="content">{type === 'image' ? 'Image' : 'Ad Text'}</Label>
                                 {type === 'image' ? (
-                                    <div className="flex flex-col items-center gap-4">
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            onChange={handleImageUpload}
-                                            className="hidden"
-                                            accept="image/png, image/jpeg, image/gif"
-                                        />
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                            <Upload className="mr-2 h-4 w-4" />
-                                            Upload Image
-                                        </Button>
-                                        {imageBase64 && (
-                                            <div className="mt-2 p-2 border rounded-md w-full aspect-video relative">
-                                                <Image src={imageBase64} alt="Image preview" layout="fill" objectFit="contain" className="rounded-md" />
-                                            </div>
-                                        )}
-                                    </div>
+                                    <>
+                                        <Label htmlFor="content">Image</Label>
+                                        <div className="flex flex-col items-center gap-4">
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleImageUpload}
+                                                className="hidden"
+                                                accept="image/png, image/jpeg, image/gif"
+                                            />
+                                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Upload Image
+                                            </Button>
+                                            {imageBase64 && (
+                                                <div className="mt-2 p-2 border rounded-md w-full aspect-video relative">
+                                                    <Image src={imageBase64} alt="Image preview" layout="fill" objectFit="contain" className="rounded-md" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
                                 ) : (
-                                    <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={'Your ad text here...'} />
+                                    <>
+                                        <Label htmlFor="content">Ad Text</Label>
+                                        <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={'Your ad text here...'} />
+                                    </>
                                 )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="action-type">Click Action</Label>
-                                <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup')}>
+                                <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup' | 'enlarge')}>
                                     <SelectTrigger id="action-type">
                                         <SelectValue placeholder="Select an action" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="url"><LinkIcon className="mr-2 h-4 w-4" />Open URL</SelectItem>
                                         <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
+                                        {type === 'image' && <SelectItem value="enlarge"><Maximize className="mr-2 h-4 w-4"/>Enlarge Image</SelectItem>}
                                     </SelectContent>
                                 </Select>
                             </div>
