@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -49,6 +50,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
+import { resetPassword } from '@/ai/flows/reset-password-flow';
 
 
 type UserProfile = {
@@ -94,6 +96,9 @@ function UserManagementTool() {
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
   const [newDisplayName, setNewDisplayName] = useState('');
+
+  const [isPasswordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
 
 
   useEffect(() => {
@@ -193,6 +198,12 @@ function UserManagementTool() {
     setEditDialogOpen(true);
   }
 
+  const handlePasswordClick = (user: UserProfile) => {
+    setUserToEdit(user);
+    setPasswordDialogOpen(true);
+  };
+
+
   const confirmSuspendUser = async () => {
     if (!firestore || !userToSuspend) return;
     const newStatus = userToSuspend.status === 'Active' ? 'Suspended' : 'Active';
@@ -261,6 +272,8 @@ function UserManagementTool() {
     batch.commit()
         .then(() => {
              toast({ title: 'Success', description: 'User details updated.' });
+             setEditDialogOpen(false);
+             setUserToEdit(null);
         })
         .catch((err) => {
             const permissionError = new FirestorePermissionError({
@@ -270,11 +283,29 @@ function UserManagementTool() {
             });
             errorEmitter.emit('permission-error', permissionError);
         })
-        .finally(() => {
-            setEditDialogOpen(false);
-            setUserToEdit(null);
-        })
   };
+  
+  const handlePasswordSave = async () => {
+    if (!userToEdit || !newPassword) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Password cannot be empty.' });
+      return;
+    }
+     if (newPassword.length < 6) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
+      return;
+    }
+
+    try {
+      await resetPassword({ uid: userToEdit.uid, newPassword });
+      toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
+      setPasswordDialogOpen(false);
+      setUserToEdit(null);
+      setNewPassword('');
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.' });
+    }
+  };
+
 
   return (
     <>
@@ -339,8 +370,14 @@ function UserManagementTool() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEditClick(user)}>
                             <Edit className="mr-2 h-4 w-4" />
-                            Edit
+                            Edit Name
                         </DropdownMenuItem>
+                         {currentUserRole === 'Lead-Manager' && (
+                             <DropdownMenuItem onClick={() => handlePasswordClick(user)}>
+                                <Lock className="mr-2 h-4 w-4" />
+                                Edit Password
+                            </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => handleSuspendClick(user)}>
                             <UserX className="mr-2 h-4 w-4" />
                             {user.status === 'Active' ? 'Suspend' : 'Un-suspend'}
@@ -431,6 +468,37 @@ function UserManagementTool() {
         <DialogFooter>
           <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleSaveChanges}>Save Changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    
+     <Dialog open={isPasswordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Password for: {userToEdit?.displayName}</DialogTitle>
+           <DialogDescription>
+            Enter a new password for the user.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="newPassword" className="text-right">
+              New Password
+            </Label>
+            <Input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+            <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          <Button onClick={handlePasswordSave}>Save Password</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -868,7 +936,13 @@ export default function AdminDashboardPage() {
     }
   }, [user, firestore]);
 
-  if (userRole && !['Lead-Manager', 'Sub-Manager'].includes(userRole)) {
+  if (!userRole) {
+    // Still loading user role, show a loader or nothing
+    return null;
+  }
+
+
+  if (!['Lead-Manager', 'Sub-Manager'].includes(userRole)) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
             <h1 className="text-2xl font-bold">Access Denied</h1>

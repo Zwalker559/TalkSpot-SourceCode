@@ -174,6 +174,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         await batch.commit();
 
         toast({ title: "Success", description: "Display name saved." });
+        setDisplayNameModalOpen(false);
     } catch (error: any) {
         toast({ variant: 'destructive', title: "Error", description: "Could not save display name." });
     }
