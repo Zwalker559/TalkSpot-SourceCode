@@ -83,7 +83,7 @@ export default function PromotionsCarousel() {
                 }}
                  plugins={[
                     Autoplay({
-                        delay: 5000,
+                        delay: 3000,
                         stopOnInteraction: true,
                     }),
                 ]}
@@ -95,7 +95,7 @@ export default function PromotionsCarousel() {
                                 <CardContent className="flex items-center justify-center p-2 aspect-video">
                                     {promo.type === 'image' ? (
                                         <div className="relative w-full h-full">
-                                            <Image src={promo.content} alt={promo.title} layout="fill" objectFit="contain" className="rounded-md" />
+                                            <Image src={promo.content} alt={promo.title} layout="fill" objectFit="cover" className="rounded-md" />
                                         </div>
                                     ) : (
                                         <div className="text-center p-4 flex flex-col items-center justify-center">

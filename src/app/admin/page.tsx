@@ -510,7 +510,7 @@ function SponsorManagementTool() {
         setEditingPromo(promo);
         setTitle(promo.title);
         setType(promo.type);
-        setContent(promo.content);
+        setContent(promo.type === 'text' ? promo.content : '');
         if (promo.type === 'image') {
             setImageBase64(promo.content);
         }
@@ -695,7 +695,7 @@ function SponsorManagementTool() {
                                     return (
                                     <TableRow key={promo.id}>
                                         <TableCell className="font-medium flex items-center gap-3">
-                                            {promo.type === 'image' ? (
+                                             {promo.type === 'image' ? (
                                                 isInvalidImageSrc ? (
                                                      <div className="w-10 h-10 flex items-center justify-center bg-destructive/20 rounded-md">
                                                         <ImageIcon className="h-5 w-5 text-destructive" />
@@ -783,8 +783,8 @@ function SponsorManagementTool() {
                                             Upload Image
                                         </Button>
                                         {imageBase64 && (
-                                            <div className="mt-2 p-2 border rounded-md">
-                                                <Image src={imageBase64} alt="Image preview" width={100} height={100} className="object-contain rounded-md" />
+                                            <div className="mt-2 p-2 border rounded-md w-full aspect-video relative">
+                                                <Image src={imageBase64} alt="Image preview" layout="fill" objectFit="contain" className="rounded-md" />
                                             </div>
                                         )}
                                     </div>
