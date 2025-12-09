@@ -24,6 +24,7 @@ import {
 import Image from 'next/image';
 import { Newspaper } from 'lucide-react';
 import Autoplay from "embla-carousel-autoplay";
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 
 type Promotion = {
@@ -50,8 +51,9 @@ export default function PromotionsCarousel() {
     useEffect(() => {
         if (!firestore) return;
 
+        const sponsorshipsColRef = collection(firestore, 'Sponsorships');
         const q = query(
-            collection(firestore, 'Sponsorships'), 
+            sponsorshipsColRef, 
             where('status', '==', 'active'),
             where('location', 'in', ['header', 'both'])
         );
@@ -63,6 +65,12 @@ export default function PromotionsCarousel() {
             });
             // Simple sort by display weight
             setPromotions(activePromos.sort((a,b) => b.displayWeight - a.displayWeight));
+        }, (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: sponsorshipsColRef.path,
+                operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
 
         return () => unsubscribe();
