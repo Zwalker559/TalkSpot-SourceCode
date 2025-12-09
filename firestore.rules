@@ -8,19 +8,19 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
     function isManager() {
-      // Check if the user document exists before trying to access its data.
+      // Check if the user document exists and has a role before trying to access it.
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+             getUserData(request.auth.uid).role in ['Lead-Manager', 'Sub-Manager'];
     }
     
     function isLeadManager() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
+             getUserData(request.auth.uid).role == 'Lead-Manager';
     }
 
     match /users/{userId} {
@@ -29,12 +29,12 @@ service cloud.firestore {
       // Allow users to update their own profile.
       // Allow managers to update profiles of lower-level users.
       allow update: if isOwner(userId) || 
-                    (isLeadManager() && getUserRole(userId) != 'Lead-Manager') ||
-                    (getUserRole(request.auth.uid) == 'Sub-Manager' && getUserRole(userId) == 'User');
+                    (isLeadManager() && getUserData(userId).role != 'Lead-Manager') ||
+                    (getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
       
       // Allow managers to delete lower-level users.
-      allow delete: if (isLeadManager() && getUserRole(userId) != 'Lead-Manager') ||
-                       (getUserRole(request.auth.uid) == 'Sub-Manager' && getUserRole(userId) == 'User');
+      allow delete: if (isLeadManager() && getUserData(userId).role != 'Lead-Manager') ||
+                       (getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
     }
 
     match /user_lookups/{lookupId} {
