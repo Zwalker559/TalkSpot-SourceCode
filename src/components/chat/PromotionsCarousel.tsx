@@ -60,19 +60,14 @@ export default function PromotionsCarousel() {
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const activePromos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Promotion));
-            const sortedPromos = activePromos.sort((a, b) => b.displayWeight - a.displayWeight);
-            setPromotions(sortedPromos);
+            setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
         }, (error) => {
             console.error("Firestore error fetching promotions:", error);
-            toast({
-                variant: "destructive",
-                title: "Could not load promotions",
-                description: "There was an issue fetching promotional content. Please check your connection or contact support.",
-            });
+            // We will let the FirebaseErrorListener handle displaying the error
         });
 
         return () => unsubscribe();
-    }, [firestore, toast]);
+    }, [firestore]);
     
     const handlePromoClick = (promo: Promotion) => {
         if (promo.actionType === 'url' && promo.linkUrl) {
@@ -87,7 +82,7 @@ export default function PromotionsCarousel() {
     };
 
     if (promotions.length === 0) {
-        return null; // Don't render anything if there are no promotions to show
+        return null; 
     }
 
     return (
@@ -126,7 +121,6 @@ export default function PromotionsCarousel() {
                 )}
             </Carousel>
 
-            {/* Alert Dialog for Text Popups */}
             <AlertDialog open={isPopupOpen} onOpenChange={setPopupOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -139,7 +133,6 @@ export default function PromotionsCarousel() {
                 </AlertDialogContent>
             </AlertDialog>
             
-            {/* Alert Dialog for Enlarged Images */}
             <AlertDialog open={isImagePopupOpen} onOpenChange={setImagePopupOpen}>
                 <AlertDialogContent className="max-w-3xl">
                      <AlertDialogHeader>
