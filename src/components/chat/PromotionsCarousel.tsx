@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Autoplay from 'embla-carousel-autoplay';
 import {
@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/dialog';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 type Promotion = {
   id: string;
@@ -49,26 +48,26 @@ export default function PromotionsCarousel() {
     const sponsorshipsColRef = collection(firestore, 'Sponsorships');
     const q = query(
       sponsorshipsColRef,
-      where('status', '==', 'active'),
-      where('location', 'in', ['header', 'both'])
+      where('status', '==', 'active')
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const activePromos = snapshot.docs.map((doc) => ({
+        const allActivePromos = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Promotion[];
-        setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
+        
+        // Filter for location on the client side
+        const headerPromos = allActivePromos.filter(promo => 
+            promo.location === 'header' || promo.location === 'both'
+        );
+
+        setPromotions(headerPromos.sort((a, b) => b.displayWeight - a.displayWeight));
       },
-      (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: sponsorshipsColRef.path,
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        console.error("Permission error fetching promotions:", serverError);
+      (error) => {
+        console.error("Error fetching promotions:", error);
       }
     );
     return () => unsubscribe();
