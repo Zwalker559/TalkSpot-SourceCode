@@ -65,8 +65,9 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-      // Any authenticated user can read sponsorships.
-      allow read: if request.auth != null;
+      // Any authenticated user with a valid role can read sponsorships.
+      allow read: if exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['User', 'Sub-Manager', 'Lead-Manager'];
       // Only managers can create, update, or delete sponsorships.
       allow write: if isManager();
     }
