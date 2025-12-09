@@ -151,7 +151,7 @@ function UserManagementTool() {
   const canManage = (targetUser: UserProfile) => {
     if (!currentUserRole || currentUser?.uid === targetUser.uid) return false;
     if (currentUserRole === 'Lead-Manager') {
-        return true; 
+        return targetUser.role !== 'Lead-Manager';
     }
     if (currentUserRole === 'Sub-Manager' && targetUser.role === 'User') {
         return true; 
@@ -513,6 +513,8 @@ function SponsorManagementTool() {
         setContent(promo.type === 'text' ? promo.content : '');
         if (promo.type === 'image') {
             setImageBase64(promo.content);
+        } else {
+            setImageBase64(null);
         }
         setActionType(promo.actionType || 'url');
         setLinkUrl(promo.linkUrl || '');
@@ -541,6 +543,7 @@ function SponsorManagementTool() {
             reader.onload = (loadEvent) => {
                 const result = loadEvent.target?.result as string;
                 setImageBase64(result);
+                setContent(''); // Clear text content when image is uploaded
             };
             reader.readAsDataURL(file);
         }
@@ -603,7 +606,6 @@ function SponsorManagementTool() {
                 return;
             }
             finalContent = imageBase64;
-            // 'enlarge' is only valid for images
             if (actionType !== 'url' && actionType !== 'popup' && actionType !== 'enlarge') {
               finalActionType = 'enlarge';
             }
@@ -613,7 +615,6 @@ function SponsorManagementTool() {
                 return;
             }
             finalContent = content;
-            // 'enlarge' is not valid for text
             if (finalActionType === 'enlarge') {
                 finalActionType = 'popup';
             }
@@ -851,6 +852,34 @@ function SponsorManagementTool() {
 }
 
 export default function AdminDashboardPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && firestore) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+          setUserRole(doc.data().role);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user, firestore]);
+
+  if (userRole && !['Lead-Manager', 'Sub-Manager'].includes(userRole)) {
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-center">
+            <h1 className="text-2xl font-bold">Access Denied</h1>
+            <p className="text-muted-foreground">
+                You do not have permission to view this page.
+            </p>
+        </div>
+    );
+  }
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col space-y-2">
@@ -875,5 +904,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
