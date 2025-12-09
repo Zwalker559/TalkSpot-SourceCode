@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -20,6 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
+
 
 type Promotion = {
   id: string;
@@ -66,8 +67,12 @@ export default function PromotionsCarousel() {
 
         setPromotions(headerPromos.sort((a, b) => b.displayWeight - a.displayWeight));
       },
-      (error) => {
-        console.error("Error fetching promotions:", error);
+      (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: sponsorshipsColRef.path,
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
       }
     );
     return () => unsubscribe();
