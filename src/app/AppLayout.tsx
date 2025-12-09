@@ -47,8 +47,6 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import PromotionsCarousel from '@/components/chat/PromotionsCarousel';
-import SidebarPromotions from '@/components/chat/SidebarPromotions';
 
 const navItems = [
   { href: '/dashboard', icon: MessageSquare, label: 'Chats' },
@@ -291,9 +289,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   ))}
                 </nav>
               </div>
-              <div className="mt-auto p-4">
-                <SidebarPromotions />
-              </div>
             </div>
           </div>
           <div className="flex flex-col max-h-screen">
@@ -334,9 +329,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       </Link>
                     ))}
                   </nav>
-                  <div className="mt-auto p-4">
-                    <SidebarPromotions />
-                  </div>
                 </SheetContent>
               </Sheet>
               <div className="w-full flex-1" />
@@ -373,9 +365,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenu>
             </header>
             <main className={`flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 ${pathname.startsWith('/dashboard') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-              <div className="px-4 lg:px-6">
-                  <PromotionsCarousel />
-              </div>
                {canRenderChildren ? children : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <p className="text-lg">Please complete the onboarding steps...</p>

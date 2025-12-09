@@ -63,12 +63,5 @@ service cloud.firestore {
        allow read, delete: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
        allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
-    
-    match /Sponsorships/{sponsorshipId} {
-      // Anyone can read sponsorships to ensure they load for all users.
-      allow read: if true;
-      // Only managers can create, update, or delete sponsorships.
-      allow write: if isManager();
-    }
   }
 }
