@@ -102,6 +102,11 @@
                     "enum": ["url", "popup", "enlarge"],
                     "description": "The action to perform when the promotion is clicked."
                 },
+                "location": {
+                    "type": "string",
+                    "enum": ["header", "sidebar", "both"],
+                    "description": "Where the promotion should be displayed."
+                },
                 "linkUrl": {
                     "type": "string",
                     "description": "The URL the promotion links to (if actionType is 'url')."
@@ -124,7 +129,7 @@
                     "description": "Timestamp of when the promotion was created."
                 }
             },
-            "required": ["title", "type", "content", "actionType", "status", "displayWeight"]
+            "required": ["title", "type", "content", "actionType", "location", "status", "displayWeight"]
         },
         "chatRequest": {
             "title": "Chat Request",

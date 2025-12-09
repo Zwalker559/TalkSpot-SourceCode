@@ -8,8 +8,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from '@/components/ui/carousel';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -25,7 +23,6 @@ import Image from 'next/image';
 import { Newspaper } from 'lucide-react';
 import Autoplay from "embla-carousel-autoplay";
 
-
 type Promotion = {
     id: string;
     title: string;
@@ -39,7 +36,7 @@ type Promotion = {
     location: 'header' | 'sidebar' | 'both';
 }
 
-export default function PromotionsCarousel() {
+export default function SidebarPromotions() {
     const firestore = useFirestore();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [isPopupOpen, setPopupOpen] = useState(false);
@@ -53,7 +50,7 @@ export default function PromotionsCarousel() {
         const q = query(
             collection(firestore, 'Sponsorships'), 
             where('status', '==', 'active'),
-            where('location', 'in', ['header', 'both'])
+            where('location', 'in', ['sidebar', 'both'])
         );
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -61,8 +58,7 @@ export default function PromotionsCarousel() {
             snapshot.forEach(doc => {
                 activePromos.push({ id: doc.id, ...doc.data() } as Promotion);
             });
-            // Simple sort by display weight
-            setPromotions(activePromos.sort((a,b) => b.displayWeight - a.displayWeight));
+            setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
         });
 
         return () => unsubscribe();
@@ -80,39 +76,31 @@ export default function PromotionsCarousel() {
         }
     };
 
-
     if (promotions.length === 0) {
-        return null; // Don't render anything if there are no active promotions
+        return null;
     }
 
     return (
         <>
             <Carousel 
                 className="w-full"
-                opts={{
-                    loop: true,
-                }}
-                 plugins={[
-                    Autoplay({
-                        delay: 3000,
-                        stopOnInteraction: true,
-                    }),
-                ]}
+                opts={{ align: "start", loop: true }}
+                plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]}
             >
                 <CarouselContent>
                     {promotions.map((promo) => (
                         <CarouselItem key={promo.id} onClick={() => handlePromoClick(promo)} className="cursor-pointer">
                             <Card className="overflow-hidden bg-muted/50 border-dashed">
-                                <CardContent className="flex items-center justify-center p-2 aspect-[16/7]">
+                                <CardContent className="flex items-center justify-center p-2 aspect-square">
                                     {promo.type === 'image' ? (
                                         <div className="relative w-full h-full">
                                             <Image src={promo.content} alt={promo.title} layout="fill" objectFit="cover" className="rounded-md" />
                                         </div>
                                     ) : (
                                         <div className="text-center p-4 flex flex-col items-center justify-center">
-                                            <Newspaper className="h-10 w-10 mb-4 text-muted-foreground" />
-                                            <h3 className="font-bold text-xl">{promo.title}</h3>
-                                            <p className="text-md text-foreground/90">{promo.content}</p>
+                                            <Newspaper className="h-8 w-8 mb-2 text-muted-foreground" />
+                                            <h3 className="font-semibold text-lg leading-tight">{promo.title}</h3>
+                                            <p className="text-sm text-foreground/80 mt-1">{promo.content}</p>
                                         </div>
                                     )}
                                 </CardContent>
@@ -120,21 +108,13 @@ export default function PromotionsCarousel() {
                         </CarouselItem>
                     ))}
                 </CarouselContent>
-                {promotions.length > 1 && (
-                    <>
-                        <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2" />
-                        <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2" />
-                    </>
-                )}
             </Carousel>
 
              <AlertDialog open={isPopupOpen} onOpenChange={setPopupOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>{popupData.title}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {popupData.content}
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>{popupData.content}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setPopupOpen(false)}>Close</AlertDialogAction>

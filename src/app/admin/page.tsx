@@ -73,6 +73,7 @@ type Promotion = {
     popupContent?: string;
     status: 'active' | 'disabled';
     displayWeight: number;
+    location: 'header' | 'sidebar' | 'both';
     createdAt?: any;
 }
 
@@ -524,6 +525,7 @@ function SponsorManagementTool() {
     const [type, setType] = useState<'text' | 'image'>('text');
     const [content, setContent] = useState('');
     const [actionType, setActionType] = useState<'url' | 'popup' | 'enlarge'>('url');
+    const [location, setLocation] = useState<'header' | 'sidebar' | 'both'>('header');
     const [linkUrl, setLinkUrl] = useState('');
     const [popupContent, setPopupContent] = useState('');
     const [displayWeight, setDisplayWeight] = useState(1);
@@ -558,6 +560,7 @@ function SponsorManagementTool() {
         setType('text');
         setContent('');
         setActionType('url');
+        setLocation('header');
         setLinkUrl('');
         setPopupContent('');
         setDisplayWeight(1);
@@ -584,6 +587,7 @@ function SponsorManagementTool() {
             setImageBase64(null);
         }
         setActionType(promo.actionType || 'url');
+        setLocation(promo.location || 'header');
         setLinkUrl(promo.linkUrl || '');
         setPopupContent(promo.popupContent || '');
         setDisplayWeight(promo.displayWeight);
@@ -694,6 +698,7 @@ function SponsorManagementTool() {
             actionType: finalActionType,
             linkUrl: finalActionType === 'url' ? linkUrl : '',
             popupContent: finalActionType === 'popup' ? popupContent : '',
+            location: location,
             displayWeight: Number(displayWeight) || 1,
             status: editingPromo?.status || 'active',
         };
@@ -741,8 +746,8 @@ function SponsorManagementTool() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Title</TableHead>
+                                <TableHead>Location</TableHead>
                                 <TableHead>Type</TableHead>
-                                <TableHead>Action</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Weight</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -774,8 +779,8 @@ function SponsorManagementTool() {
                                             )}
                                             {promo.title}
                                         </TableCell>
+                                        <TableCell><Badge variant="outline">{promo.location || 'header'}</Badge></TableCell>
                                         <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
-                                        <TableCell><Badge variant="secondary">{promo.actionType}</Badge></TableCell>
                                         <TableCell>
                                              <Badge variant={promo.status === 'active' ? 'default' : 'destructive'} className={promo.status === 'active' ? 'bg-green-500/20 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/30' : ''}>
                                                 {promo.status}
@@ -822,6 +827,21 @@ function SponsorManagementTool() {
                                 <Label htmlFor="title">Title</Label>
                                 <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
                             </div>
+
+                             <div className="space-y-2">
+                                <Label>Location</Label>
+                                <Select value={location} onValueChange={(v) => setLocation(v as 'header' | 'sidebar' | 'both')}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a location" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="header">Header Carousel</SelectItem>
+                                        <SelectItem value="sidebar">Sidebar</SelectItem>
+                                        <SelectItem value="both">Both</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            
                             <div className="space-y-2">
                                 <Label>Type</Label>
                                 <Tabs defaultValue={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
