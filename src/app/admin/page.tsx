@@ -1088,21 +1088,23 @@ function AuditLogTool() {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="bg-muted/50 p-4 rounded-md">
-                                        <div className="text-xs font-mono space-y-2">
-                                           <h4 className="font-semibold text-sm mb-2">Log Details</h4>
-                                           <p><span className="font-semibold">Actor ID:</span> {log.actorUid}</p>
-                                           {log.targetInfo?.type && <p><span className="font-semibold">Target Type:</span> {log.targetInfo.type}</p>}
-                                           {log.targetInfo?.uid && <p><span className="font-semibold">Target ID:</span> {log.targetInfo.uid}</p>}
-                                           {log.targetInfo?.displayName && <p><span className="font-semibold">Target Name:</span> {log.targetInfo.displayName}</p>}
-                                           {log.details && (
-                                            <div>
-                                                <p className="font-semibold mt-2">Changes:</p>
-                                                <div className="pl-4 border-l ml-2 space-y-1 mt-1">
-                                                    {Object.entries(log.details).map(([key, value]) => renderDetail(key, value))}
+                                        <ScrollArea className="max-h-60">
+                                            <div className="text-xs font-mono space-y-2 pr-4">
+                                                <h4 className="font-semibold text-sm mb-2">Log Details</h4>
+                                                <p><span className="font-semibold">Actor ID:</span> {log.actorUid}</p>
+                                                {log.targetInfo?.type && <p><span className="font-semibold">Target Type:</span> {log.targetInfo.type}</p>}
+                                                {log.targetInfo?.uid && <p><span className="font-semibold">Target ID:</span> {log.targetInfo.uid}</p>}
+                                                {log.targetInfo?.displayName && <p><span className="font-semibold">Target Name:</span> {log.targetInfo.displayName}</p>}
+                                                {log.details && (
+                                                <div>
+                                                    <p className="font-semibold mt-2">Changes:</p>
+                                                    <div className="pl-4 border-l ml-2 space-y-1 mt-1">
+                                                        {Object.entries(log.details).map(([key, value]) => renderDetail(key, value))}
+                                                    </div>
                                                 </div>
+                                                )}
                                             </div>
-                                           )}
-                                        </div>
+                                        </ScrollArea>
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
@@ -1277,4 +1279,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
