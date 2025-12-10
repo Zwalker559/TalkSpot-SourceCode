@@ -72,7 +72,7 @@ service cloud.firestore {
     
     match /Sponsorships/{sponsorshipId} {
         allow read: if true;
-        allow write: if isAuthenticatedUser();
+        allow write: if isManager();
     }
   }
 }
