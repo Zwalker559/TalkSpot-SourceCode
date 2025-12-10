@@ -3,35 +3,17 @@
 import {promises as fs} from 'fs';
 import path from 'path';
 
-type Promotion = {
-    id: string;
-    title: string;
-    type: 'text' | 'image';
-    content: string;
-    logoUrl?: string; 
-    actionType: 'url' | 'popup' | 'enlarge';
-    linkUrl?: string;
-    popupContent?: string;
-    status: 'active' | 'disabled';
-    displayWeight: number;
-    location: 'header' | 'sidebar' | 'both';
-    createdAt?: {
-        seconds: number;
-        nanoseconds: number;
-    };
-}
-
-export async function updatePromotions(promotions: Promotion[]) {
+export async function updatePromotions(jsonContent: string) {
   const filePath = path.join(process.cwd(), 'src', 'lib', 'promotions.json');
-  const jsonData = JSON.stringify({ promotions }, null, 2);
   
   try {
-    await fs.writeFile(filePath, jsonData, 'utf8');
-    return { success: true };
-  } catch (error) {
+    // Validate if the content is valid JSON before writing
+    JSON.parse(jsonContent);
+    await fs.writeFile(filePath, jsonContent, 'utf8');
+    return { success: true, message: 'Promotions updated successfully. The app will now reload.' };
+  } catch (error: any) {
     console.error("Failed to write to promotions.json", error);
-    throw new Error("Failed to update promotions.");
+    // If JSON is invalid, the error message will be informative
+    return { success: false, message: `Failed to update promotions: ${error.message}` };
   }
 }
-
-    

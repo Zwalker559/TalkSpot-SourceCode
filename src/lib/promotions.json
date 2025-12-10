@@ -1,3 +1,17 @@
 {
-  "promotions": []
+  "promotions": [
+    {
+      "id": "1",
+      "title": "Welcome to TalkSpot!",
+      "type": "text",
+      "content": "Click in the middle to learn more.",
+      "logoUrl": null,
+      "actionType": "popup",
+      "linkUrl": "",
+      "popupContent": "You can manage these promotions in the Admin dashboard.",
+      "status": "active",
+      "displayWeight": 1,
+      "location": "both"
+    }
+  ]
 }

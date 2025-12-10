@@ -33,20 +33,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
 import { resetPassword } from '@/ai/flows/reset-password-flow';
 import promotionsData from '@/lib/promotions.json';
@@ -62,24 +58,6 @@ type UserProfile = {
   status?: 'Active' | 'Suspended';
   textingId: string;
 };
-
-type Promotion = {
-    id: string;
-    title: string;
-    type: 'text' | 'image';
-    content: string;
-    logoUrl?: string; 
-    actionType: 'url' | 'popup' | 'enlarge';
-    linkUrl?: string;
-    popupContent?: string;
-    status: 'active' | 'disabled';
-    displayWeight: number;
-    location: 'header' | 'sidebar' | 'both';
-    createdAt?: {
-        seconds: number;
-        nanoseconds: number;
-    };
-}
 
 const ROLES = ['User', 'Sub-Manager', 'Lead-Manager'];
 
@@ -100,7 +78,7 @@ function UserManagementTool() {
 
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
-  const [newDisplayName, setNewDisplayName] = useState('');
+  const [newDisplayName, setNewDisplayName]_useState('');
 
   const [isPasswordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -512,453 +490,52 @@ function UserManagementTool() {
 
 function SponsorManagementTool() {
     const { toast } = useToast();
-    const [promotions, setPromotions] = useState<Promotion[]>(promotionsData.promotions);
-    const [loading, setLoading] = useState(false);
-    const imageInputRef = useRef<HTMLInputElement>(null);
-    const logoInputRef = useRef<HTMLInputElement>(null);
+    const [jsonContent, setJsonContent] = useState(JSON.stringify(promotionsData, null, 2));
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Dialog states
-    const [isFormOpen, setFormOpen] = useState(false);
-    const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
-    const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [promoToDelete, setPromoToDelete] = useState<Promotion | null>(null);
-
-    // Form state
-    const [title, setTitle] = useState('');
-    const [type, setType] = useState<'text' | 'image'>('text');
-    const [content, setContent] = useState('');
-    const [logoUrl, setLogoUrl] = useState<string | null>(null);
-    const [actionType, setActionType] = useState<'url' | 'popup' | 'enlarge'>('url');
-    const [location, setLocation] = useState<'header' | 'sidebar' | 'both'>('header');
-    const [linkUrl, setLinkUrl] = useState('');
-    const [popupContent, setPopupContent] = useState('');
-    const [displayWeight, setDisplayWeight] = useState(1);
-    const [imageBase64, setImageBase64] = useState<string | null>(null);
-
-    
-    const resetForm = () => {
-        setTitle('');
-        setType('text');
-        setContent('');
-        setLogoUrl(null);
-        setActionType('url');
-        setLocation('header');
-        setLinkUrl('');
-        setPopupContent('');
-        setDisplayWeight(1);
-        setEditingPromo(null);
-        setImageBase64(null);
-        if (imageInputRef.current) imageInputRef.current.value = '';
-        if (logoInputRef.current) logoInputRef.current.value = '';
-    }
-
-    const handleAddClick = () => {
-        resetForm();
-        setFormOpen(true);
+    const handleSave = async () => {
+      setIsSaving(true);
+      const result = await updatePromotions(jsonContent);
+      if (result.success) {
+        toast({
+          title: "Promotions Saved",
+          description: "The promotions file has been updated. The app will reload to apply changes.",
+        });
+        // The server action will trigger a hot reload in development.
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error Saving Promotions",
+          description: result.message,
+        });
+      }
+      setIsSaving(false);
     };
-    
-    const handleEditClick = (promo: Promotion) => {
-        setEditingPromo(promo);
-        setTitle(promo.title);
-        setType(promo.type);
-        setContent(promo.type === 'text' ? promo.content : '');
-        setLogoUrl(promo.logoUrl || null);
-        if (promo.type === 'image') {
-            setImageBase64(promo.content);
-        } else {
-            setImageBase64(null);
-        }
-        setActionType(promo.actionType || 'url');
-        setLocation(promo.location || 'header');
-        setLinkUrl(promo.linkUrl || '');
-        setPopupContent(promo.popupContent || '');
-        setDisplayWeight(promo.displayWeight);
-        setFormOpen(true);
-    }
-
-    const handleDeleteClick = (promo: Promotion) => {
-        setPromoToDelete(promo);
-        setDeleteDialogOpen(true);
-    };
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isLogo: boolean) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const sizeLimit = isLogo ? 100 * 1024 : 1024 * 1024; // 100KB for logos, 1MB for main images
-            const errorMsg = isLogo ? 'Logo must be smaller than 100KB.' : 'Image must be smaller than 1MB.';
-            if (file.size > sizeLimit) {
-                toast({ variant: 'destructive', title: 'File too large', description: errorMsg });
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = (loadEvent) => {
-                const result = loadEvent.target?.result as string;
-                if (isLogo) {
-                    setLogoUrl(result);
-                } else {
-                    setImageBase64(result);
-                    setContent(''); // Clear text content when image is uploaded
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-
-    const confirmDelete = async () => {
-        if (!promoToDelete) return;
-        setLoading(true);
-        const newPromotions = promotions.filter(p => p.id !== promoToDelete.id);
-        try {
-            await updatePromotions(newPromotions);
-            setPromotions(newPromotions);
-            toast({ title: "Promotion Deleted" });
-        } catch (error: any) {
-            toast({ variant: "destructive", title: "Error", description: error.message });
-        } finally {
-            setLoading(false);
-            setDeleteDialogOpen(false);
-            setPromoToDelete(null);
-        }
-    }
-
-    const handleStatusToggle = async (promo: Promotion) => {
-        setLoading(true);
-        const newStatus = promo.status === 'active' ? 'disabled' : 'active';
-        const newPromotions = promotions.map(p => p.id === promo.id ? { ...p, status: newStatus } : p);
-        try {
-            await updatePromotions(newPromotions);
-            setPromotions(newPromotions);
-            toast({ title: 'Status Updated', description: `Promotion is now ${newStatus}.` });
-        } catch (error: any) {
-            toast({ variant: "destructive", title: "Error", description: error.message });
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-   const handleSave = async () => {
-        if (!title.trim()) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Title is required.' });
-            return;
-        }
-        
-        let finalContent: string;
-        let finalActionType = actionType;
-
-        if (type === 'image') {
-            if (!imageBase64) {
-                toast({ variant: 'destructive', title: 'Error', description: 'An image is required for image-type promotions.' });
-                return;
-            }
-            finalContent = imageBase64;
-             if (actionType !== 'url' && actionType !== 'popup' && actionType !== 'enlarge') {
-              finalActionType = 'enlarge';
-            }
-        } else { // type === 'text'
-            if (!content.trim()) {
-                toast({ variant: 'destructive', title: 'Error', description: 'Ad Text is required for text-type promotions.' });
-                return;
-            }
-            finalContent = content;
-            if (finalActionType === 'enlarge') {
-                finalActionType = 'popup';
-            }
-        }
-        
-        setLoading(true);
-        let newPromotions: Promotion[];
-        if (editingPromo) {
-            newPromotions = promotions.map(p => p.id === editingPromo.id ? {
-                ...p,
-                title,
-                type,
-                content: finalContent,
-                logoUrl: type === 'text' ? logoUrl : '',
-                actionType: finalActionType,
-                linkUrl: finalActionType === 'url' ? linkUrl : '',
-                popupContent: finalActionType === 'popup' ? popupContent : '',
-                location: location,
-                displayWeight: Number(displayWeight) || 1,
-            } : p);
-        } else {
-            const newPromo: Promotion = {
-                id: new Date().getTime().toString(), // Simple unique ID
-                title,
-                type,
-                content: finalContent,
-                logoUrl: type === 'text' ? logoUrl : undefined,
-                actionType: finalActionType,
-                linkUrl: finalActionType === 'url' ? linkUrl : undefined,
-                popupContent: finalActionType === 'popup' ? popupContent : undefined,
-                location: location,
-                displayWeight: Number(displayWeight) || 1,
-                status: 'active',
-                createdAt: {
-                    seconds: Math.floor(Date.now() / 1000),
-                    nanoseconds: 0
-                }
-            };
-            newPromotions = [newPromo, ...promotions];
-        }
-
-        try {
-            await updatePromotions(newPromotions);
-            setPromotions(newPromotions);
-            toast({ title: editingPromo ? 'Promotion Updated' : 'Promotion Added' });
-            setFormOpen(false);
-            resetForm();
-        } catch (error: any) {
-            toast({ variant: "destructive", title: "Error", description: error.message });
-        } finally {
-            setLoading(false);
-        }
-    }
-
 
     return (
-        <>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Sponsors & Promotions</CardTitle>
-                        <CardDescription>Manage advertisements that appear in the app.</CardDescription>
-                    </div>
-                    <Button onClick={handleAddClick}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Promotion
-                    </Button>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Location</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Weight</TableHead>
-                                <TableHead><span className="sr-only">Actions</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
-                            ) : promotions.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center">No promotions yet.</TableCell></TableRow>
-                            ) : (
-                                promotions.map(promo => {
-                                    const isInvalidImageSrc = promo.type === 'image' && (!promo.content || (!promo.content.startsWith('data:image') && !promo.content.startsWith('http')));
-                                    return (
-                                    <TableRow key={promo.id}>
-                                        <TableCell className="font-medium flex items-center gap-3">
-                                            {promo.type === 'image' ? (
-                                                isInvalidImageSrc ? (
-                                                     <div className="w-10 h-10 flex items-center justify-center bg-destructive/20 rounded-md">
-                                                        <ImageIcon className="h-5 w-5 text-destructive" />
-                                                    </div>
-                                                ) : (
-                                                    <Image src={promo.content} alt={promo.title} width={40} height={40} className="rounded-md object-cover aspect-square"/>
-                                                )
-                                            ) : (
-                                                <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
-                                                    {promo.logoUrl ? (
-                                                        <Image src={promo.logoUrl} alt={promo.title} width={24} height={24} className="rounded-sm object-contain"/>
-                                                    ) : (
-                                                        <FileText className="h-5 w-5 text-muted-foreground" />
-                                                    )}
-                                                </div>
-                                            )}
-                                            {promo.title}
-                                        </TableCell>
-                                        <TableCell><Badge variant="outline">{promo.location || 'header'}</Badge></TableCell>
-                                        <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
-                                        <TableCell>
-                                             <Badge variant={promo.status === 'active' ? 'default' : 'destructive'} className={promo.status === 'active' ? 'bg-green-500/20 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/30' : ''}>
-                                                {promo.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{promo.displayWeight}</TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem onClick={() => handleEditClick(promo)}>
-                                                        <Edit className="mr-2 h-4 w-4"/>Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusToggle(promo)}>
-                                                        <UserX className="mr-2 h-4 w-4" />{promo.status === 'active' ? 'Disable' : 'Enable'}
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick(promo)}>
-                                                        <Trash2 className="mr-2 h-4 w-4"/>Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                )})
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-            
-            <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                <DialogContent className="max-w-4xl">
-                    <DialogHeader>
-                        <DialogTitle>{editingPromo ? 'Edit' : 'Add'} Promotion</DialogTitle>
-                        <DialogDescription>Fill out the details and see a live preview of your promotion.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid md:grid-cols-2 gap-8 py-4">
-                        {/* Form Column */}
-                        <ScrollArea className="max-h-[70vh] pr-6">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="title">Title</Label>
-                                    <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Sale" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Type</Label>
-                                    <Tabs value={type} onValueChange={(v) => setType(v as 'text' | 'image')} className="w-full">
-                                        <TabsList className="grid w-full grid-cols-2">
-                                            <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Text</TabsTrigger>
-                                            <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Image</TabsTrigger>
-                                        </TabsList>
-                                    </Tabs>
-                                </div>
-
-                                {type === 'image' ? (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="content">Image</Label>
-                                        <Button variant="outline" className="w-full" onClick={() => imageInputRef.current?.click()}>
-                                            <Upload className="mr-2 h-4 w-4" /> Upload Image
-                                        </Button>
-                                        <Input type="file" ref={imageInputRef} onChange={(e) => handleImageUpload(e, false)} className="hidden" accept="image/png, image/jpeg, image/gif" />
-                                        <p className="text-sm text-muted-foreground">Recommended: 16:9 ratio. Max 1MB.</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="logo">Logo (Optional)</Label>
-                                            <Button variant="outline" className="w-full" onClick={() => logoInputRef.current?.click()}>
-                                                <Building2 className="mr-2 h-4 w-4" /> Upload Logo
-                                            </Button>
-                                            <Input type="file" ref={logoInputRef} onChange={(e) => handleImageUpload(e, true)} className="hidden" accept="image/png, image/jpeg, image/gif" />
-                                            <p className="text-sm text-muted-foreground">Recommended: Square icon. Max 100KB.</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="content">Ad Text</Label>
-                                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={'Your ad text here...'} />
-                                        </div>
-                                    </>
-                                )}
-
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div className="space-y-2">
-                                        <Label>Location</Label>
-                                        <Select value={location} onValueChange={(v) => setLocation(v as 'header' | 'sidebar' | 'both')}>
-                                            <SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="header">Header Carousel</SelectItem>
-                                                <SelectItem value="sidebar">Sidebar</SelectItem>
-                                                <SelectItem value="both">Both</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="action-type">Click Action</Label>
-                                        <Select value={actionType} onValueChange={(v) => setActionType(v as 'url' | 'popup' | 'enlarge')}>
-                                            <SelectTrigger id="action-type"><SelectValue placeholder="Select an action" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="url"><LinkIcon className="mr-2 h-4 w-4" />Open URL</SelectItem>
-                                                <SelectItem value="popup"><MessageSquare className="mr-2 h-4 w-4" />Show Pop-up</SelectItem>
-                                                {type === 'image' && <SelectItem value="enlarge"><Maximize className="mr-2 h-4 w-4"/>Enlarge Image</SelectItem>}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                
-                                {actionType === 'url' && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="linkUrl">Link URL</Label>
-                                        <Input id="linkUrl" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com/product" />
-                                    </div>
-                                )}
-                                {actionType === 'popup' && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="popupContent">Pop-up Content</Label>
-                                        <Textarea id="popupContent" value={popupContent} onChange={(e) => setPopupContent(e.target.value)} placeholder="Enter the informational text for the pop-up..." />
-                                    </div>
-                                )}
-                                <div className="space-y-2">
-                                    <Label htmlFor="displayWeight">Display Weight</Label>
-                                    <Input id="displayWeight" type="number" min="1" value={displayWeight} onChange={(e) => setDisplayWeight(Number(e.target.value))} />
-                                    <p className="text-sm text-muted-foreground">A higher number means a higher chance of being displayed.</p>
-                                </div>
-                            </div>
-                        </ScrollArea>
-                        
-                        {/* Preview Column */}
-                        <div className="space-y-6">
-                            <div>
-                                <Label className="text-muted-foreground">Header Preview</Label>
-                                <Card className="overflow-hidden bg-muted/50 mt-2">
-                                    <CardContent className="flex items-center justify-center p-2 aspect-[16/7]">
-                                        {type === 'image' ? (
-                                            imageBase64 ? <Image src={imageBase64} alt={title} layout="fill" objectFit="cover" className="rounded-md" /> : <div className="text-muted-foreground text-sm">Upload an image to see a preview</div>
-                                        ) : (
-                                            <div className="text-center p-4 flex flex-col items-center justify-center gap-2">
-                                                {logoUrl && <Image src={logoUrl} alt="logo" width={40} height={40} className="rounded-sm object-contain" />}
-                                                <h3 className="font-bold text-xl">{title || 'Your Title'}</h3>
-                                                <p className="text-md text-foreground/90">{content || 'Your ad text here...'}</p>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                             <div>
-                                <Label className="text-muted-foreground">Sidebar Preview</Label>
-                                <Card className="overflow-hidden bg-muted/50 mt-2">
-                                    <CardContent className="flex items-center justify-center p-2 aspect-square">
-                                        {type === 'image' ? (
-                                            imageBase64 ? <Image src={imageBase64} alt={title} layout="fill" objectFit="cover" className="rounded-md" /> : <div className="text-muted-foreground text-sm">Upload an image to see a preview</div>
-                                        ) : (
-                                            <div className="text-center p-4 flex flex-col items-center justify-center gap-1">
-                                                {logoUrl && <Image src={logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}
-                                                <h3 className="font-semibold text-lg leading-tight">{title || 'Your Title'}</h3>
-                                                <p className="text-sm text-foreground/80 mt-1">{content || 'Ad text...'}</p>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => { setFormOpen(false); resetForm(); }}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={loading}>{loading ? "Saving..." : "Save Promotion"}</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Promotion?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete the promotion "{promoToDelete?.title}"? This action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+        <Card>
+            <CardHeader>
+                <CardTitle>Sponsors & Promotions</CardTitle>
+                <CardDescription>
+                    Manage advertisements by editing the promotions JSON directly. After saving, the app will reload to show your changes.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="promotions-json">promotions.json</Label>
+                   <Textarea
+                        id="promotions-json"
+                        value={jsonContent}
+                        onChange={(e) => setJsonContent(e.target.value)}
+                        className="h-96 font-mono text-xs"
+                        placeholder="Enter valid JSON for promotions..."
+                    />
+                </div>
+                <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save Promotions"}
+                </Button>
+            </CardContent>
+        </Card>
     )
 }
 
@@ -1021,5 +598,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
