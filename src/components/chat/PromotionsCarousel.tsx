@@ -120,6 +120,9 @@ export default function PromotionsCarousel() {
     <>
       <Carousel
         setApi={setApi}
+        opts={{
+          loop: true,
+        }}
         plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]}
         className="w-full"
       >
@@ -171,7 +174,7 @@ export default function PromotionsCarousel() {
         <DialogContent className="max-w-3xl">
            <DialogHeader>
             <DialogTitle>{enlargeImage?.title}</DialogTitle>
-             <DialogDescription>Enlarged view of the promotional image.</DialogDescription>
+            <DialogDescription>Enlarged view of the promotional image.</DialogDescription>
           </DialogHeader>
           {enlargeImage && <Image src={enlargeImage.src} alt="Enlarged promotion" width={1200} height={675} className="rounded-md object-contain"/>}
         </DialogContent>
