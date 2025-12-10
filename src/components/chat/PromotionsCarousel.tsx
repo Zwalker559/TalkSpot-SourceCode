@@ -92,7 +92,7 @@ export default function PromotionsCarousel() {
           {promotions.map((promo) => (
             <CarouselItem key={promo.id} onClick={(e) => handlePromoClick(e, promo)} className="cursor-pointer">
               <Card className="overflow-hidden bg-muted/50">
-                 <CardContent className="flex items-center justify-center p-0 aspect-[16/4] relative">
+                 <CardContent className="flex items-center justify-center p-0 aspect-[16/2] relative">
                     {promo.type === 'image' ? (
                        <Image
                         src={promo.content}
