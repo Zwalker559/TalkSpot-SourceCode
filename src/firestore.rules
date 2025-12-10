@@ -33,7 +33,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth.uid != null;
       allow create: if isOwner(userId);
       // Hierarchical update logic
       allow update: if isOwner(userId) || 
@@ -78,8 +78,7 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-      allow read: if true;
-      allow write: if isManager() || isCoOwner() || isOwnerRole();
+      allow read, write: if true;
     }
 
     match /audit_logs/{logId} {
