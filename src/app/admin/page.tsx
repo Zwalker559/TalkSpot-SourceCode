@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -128,11 +129,7 @@ function UserManagementTool() {
       setUsers(userList);
       setLoading(false);
     }, (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: usersColRef.path,
-            operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        console.error("Error listening to users collection:", serverError);
         setLoading(false);
     });
 
@@ -148,11 +145,7 @@ function UserManagementTool() {
                     setCurrentUserRole(doc.data().role);
                 }
             }, (serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                    path: userDocRef.path,
-                    operation: 'get',
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                 console.error("Error listening to current user role:", serverError);
             });
             return () => unsubscribe();
         }
@@ -279,11 +272,8 @@ function UserManagementTool() {
         toast({ title: 'User Removed', description: `${userToRemove.displayName} has been removed.` });
       })
       .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: `batch delete on /users/${userToRemove.uid} and /user_lookups/${userToRemove.uid}`,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        console.error("Error removing user:", serverError)
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove user.' });
       })
       .finally(() => {
         setRemoveDialogOpen(false);
@@ -908,5 +898,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
