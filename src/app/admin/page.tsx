@@ -78,7 +78,7 @@ function UserManagementTool() {
 
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
-  const [newDisplayName, setNewDisplayName]_useState('');
+  const [newDisplayName, setNewDisplayName] = useState('');
 
   const [isPasswordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
