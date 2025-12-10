@@ -19,13 +19,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Table,
@@ -59,6 +52,7 @@ type UserProfile = {
   photoURL?: string;
   role: 'User' | 'Sub-Manager' | 'Lead-Manager' | 'Co-Owner' | 'Owner';
   status?: 'Active' | 'Suspended';
+  suspensionReason?: string;
   textingId: string;
 };
 
@@ -96,18 +90,19 @@ function UserManagementTool() {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   // Dialog states
-  const [isSuspendDialogOpen, setSuspendDialogOpen] = useState(false);
-  const [userToSuspend, setUserToSuspend] = useState<UserProfile | null>(null);
-  
   const [isRemoveDialogOpen, setRemoveDialogOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<UserProfile | null>(null);
 
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
-  const [newDisplayName, setNewDisplayName] = useState('');
-
-  const [isPasswordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
+  
+  // State for the unified edit dialog
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editTextingId, setEditTextingId] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editStatus, setEditStatus] = useState<'Active' | 'Suspended'>('Active');
+  const [editSuspensionReason, setEditSuspensionReason] = useState('');
+  const [editNewPassword, setEditNewPassword] = useState('');
 
 
   useEffect(() => {
@@ -126,13 +121,13 @@ function UserManagementTool() {
           photoURL: data.photoURL,
           role: data.role || 'User',
           status: data.status || 'Active',
+          suspensionReason: data.suspensionReason || '',
           textingId: data.textingId,
         });
       });
       setUsers(userList);
       setLoading(false);
     }, (serverError) => {
-        // This will be replaced by a console log in production
         const permissionError = new FirestorePermissionError({
             path: usersColRef.path,
             operation: 'list',
@@ -177,30 +172,24 @@ function UserManagementTool() {
       if (!currentUserRole) return false;
       const currentUserLevel = ROLE_HIERARCHY[currentUserRole];
       const targetRoleLevel = ROLE_HIERARCHY[targetRole];
+
+      // Owner and Co-Owner can't be assigned from the UI
+      if (['Owner', 'Co-Owner'].includes(targetRole)) {
+          return false;
+      }
+      
       return currentUserLevel > targetRoleLevel;
   }
-
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    if (!firestore) return;
-    const userDocRef = doc(firestore, 'users', userId);
-    const data = { role: newRole };
-    updateDoc(userDocRef, data)
-      .then(() => {
-        toast({ title: 'Success', description: 'User role updated.' });
-      })
-      .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'update',
-            requestResourceData: data,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
-  };
-
-  const handleSuspendClick = (user: UserProfile) => {
-    setUserToSuspend(user);
-    setSuspendDialogOpen(true);
+  
+  const handleEditClick = (user: UserProfile) => {
+    setUserToEdit(user);
+    setEditDisplayName(user.displayName);
+    setEditTextingId(user.textingId);
+    setEditRole(user.role);
+    setEditStatus(user.status || 'Active');
+    setEditSuspensionReason(user.suspensionReason || '');
+    setEditNewPassword('');
+    setEditDialogOpen(true);
   }
 
   const handleRemoveClick = (user: UserProfile) => {
@@ -208,40 +197,72 @@ function UserManagementTool() {
     setRemoveDialogOpen(true);
   }
 
-  const handleEditClick = (user: UserProfile) => {
-    setUserToEdit(user);
-    setNewDisplayName(user.displayName);
-    setEditDialogOpen(true);
-  }
+  const handleSaveChanges = async () => {
+    if (!firestore || !userToEdit) return;
 
-  const handlePasswordClick = (user: UserProfile) => {
-    setUserToEdit(user);
-    setPasswordDialogOpen(true);
+    try {
+        const batch = writeBatch(firestore);
+        const userDocRef = doc(firestore, 'users', userToEdit.uid);
+        const lookupDocRef = doc(firestore, 'user_lookups', userToEdit.uid);
+
+        const updates: any = {};
+        const lookupUpdates: any = {};
+
+        // Display Name
+        if (editDisplayName !== userToEdit.displayName && editDisplayName.trim()) {
+            updates.displayName = editDisplayName;
+            lookupUpdates.displayName = editDisplayName;
+        }
+
+        // Texting ID
+        if (editTextingId !== userToEdit.textingId) {
+            updates.textingId = editTextingId;
+            lookupUpdates.textingId = editTextingId;
+        }
+
+        // Role
+        if (editRole !== userToEdit.role && currentUserRole !== 'Sub-Manager') {
+            updates.role = editRole;
+        }
+
+        // Status & Suspension Reason
+        if (editStatus !== userToEdit.status) {
+            updates.status = editStatus;
+            if (editStatus === 'Suspended') {
+                if (!editSuspensionReason.trim()) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'A reason is required to suspend a user.' });
+                    return;
+                }
+                updates.suspensionReason = editSuspensionReason;
+            } else {
+                updates.suspensionReason = ''; // Clear reason on activation
+            }
+        }
+        
+        batch.update(userDocRef, updates);
+        if (Object.keys(lookupUpdates).length > 0) {
+            batch.update(lookupDocRef, lookupUpdates);
+        }
+        
+        // Password Reset
+        if (editNewPassword && (currentUserRole === 'Owner' || currentUserRole === 'Co-Owner')) {
+             if (editNewPassword.length < 6) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
+                return;
+            }
+            await resetPassword({ uid: userToEdit.uid, newPassword: editNewPassword });
+        }
+        
+        await batch.commit();
+
+        toast({ title: 'Success', description: 'User details updated.' });
+        setEditDialogOpen(false);
+        setUserToEdit(null);
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: `Failed to update: ${error.message}` });
+    }
   };
-
-
-  const confirmSuspendUser = async () => {
-    if (!firestore || !userToSuspend) return;
-    const newStatus = userToSuspend.status === 'Active' ? 'Suspended' : 'Active';
-    const userDocRef = doc(firestore, 'users', userToSuspend.uid);
-    const data = { status: newStatus };
-    updateDoc(userDocRef, data)
-        .then(() => {
-            toast({ title: 'Success', description: `User has been ${newStatus.toLowerCase()}.` });
-        })
-        .catch((serverError) => {
-             const permissionError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'update',
-                requestResourceData: data,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        })
-        .finally(() => {
-            setSuspendDialogOpen(false);
-            setUserToSuspend(null);
-        });
-  }
 
   const confirmRemoveUser = async () => {
      if (!firestore || !userToRemove) return;
@@ -270,59 +291,9 @@ function UserManagementTool() {
       });
   };
   
-  const handleSaveChanges = async () => {
-    if (!firestore || !userToEdit) return;
-    if (!newDisplayName.trim()) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Display name cannot be empty.' });
-        return;
-    }
-    
-    const userDocRef = doc(firestore, 'users', userToEdit.uid);
-    const lookupDocRef = doc(firestore, 'user_lookups', userToEdit.uid);
-
-    const batch = writeBatch(firestore);
-    const data = { displayName: newDisplayName };
-    batch.update(userDocRef, data);
-    batch.update(lookupDocRef, data);
-
-    batch.commit()
-        .then(() => {
-             toast({ title: 'Success', description: 'User details updated.' });
-             setEditDialogOpen(false);
-             setUserToEdit(null);
-        })
-        .catch((err) => {
-            const permissionError = new FirestorePermissionError({
-                path: `/users/${userToEdit.uid} and /user_lookups/${userToEdit.uid}`,
-                operation: 'update',
-                requestResourceData: data,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        })
-  };
-  
-  const handlePasswordSave = async () => {
-    if (!userToEdit || !newPassword) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Password cannot be empty.' });
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
-      return;
-    }
-
-    try {
-      await resetPassword({ uid: userToEdit.uid, newPassword });
-      toast({ title: 'Success', description: `Password for ${userToEdit.displayName} has been updated.` });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: `Failed to update password: ${error.message}` });
-    } finally {
-      setPasswordDialogOpen(false);
-      setUserToEdit(null);
-      setNewPassword('');
-    }
-  };
-
+  // Determine permissions for the edit dialog
+  const canEditRoles = currentUserRole && ['Owner', 'Co-Owner', 'Lead-Manager'].includes(currentUserRole);
+  const canEditPassword = currentUserRole && ['Owner', 'Co-Owner'].includes(currentUserRole);
 
   return (
     <>
@@ -366,7 +337,7 @@ function UserManagementTool() {
                     </div>
                   </TableCell>
                   <TableCell>
-                     <Badge variant={['Owner', 'Co-Owner', 'Lead-Manager'].includes(user.role) ? 'secondary' : 'outline'}>
+                     <Badge variant={['Owner', 'Co-Owner'].includes(user.role) ? 'destructive' : ['Lead-Manager'].includes(user.role) ? 'secondary' : 'outline'}>
                         {user.role}
                     </Badge>
                   </TableCell>
@@ -387,30 +358,8 @@ function UserManagementTool() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEditClick(user)}>
                             <Edit className="mr-2 h-4 w-4" />
-                            Edit Name
+                            Edit User
                         </DropdownMenuItem>
-                         {currentUserRole === 'Lead-Manager' && (
-                             <DropdownMenuItem onClick={() => handlePasswordClick(user)}>
-                                <Lock className="mr-2 h-4 w-4" />
-                                Edit Password
-                            </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleSuspendClick(user)}>
-                            <UserX className="mr-2 h-4 w-4" />
-                            {user.status === 'Active' ? 'Suspend' : 'Un-suspend'}
-                        </DropdownMenuItem>
-                         <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>Change Role</DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuRadioGroup value={user.role} onValueChange={(newRole) => handleRoleChange(user.uid, newRole)}>
-                                        {ROLES.map(role => (
-                                             <DropdownMenuRadioItem key={role} value={role} disabled={!canChangeRoleTo(role)}>{role}</DropdownMenuRadioItem>
-                                        ))}
-                                    </DropdownMenuRadioGroup>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuPortal>
-                         </DropdownMenuSub>
                          <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive focus:bg-destructive/20 focus:text-destructive" onClick={() => handleRemoveClick(user)}>
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -427,23 +376,6 @@ function UserManagementTool() {
       </CardContent>
     </Card>
 
-    <AlertDialog open={isSuspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    You are about to {userToSuspend?.status === 'Active' ? 'suspend' : 'un-suspend'} the user '{userToSuspend?.displayName}'. A suspended user cannot log in.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmSuspendUser} className={userToSuspend?.status === 'Active' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}>
-                    {userToSuspend?.status === 'Active' ? 'Suspend Account' : 'Re-activate Account'}
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    
     <AlertDialog open={isRemoveDialogOpen} onOpenChange={setRemoveDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -462,58 +394,106 @@ function UserManagementTool() {
     </AlertDialog>
     
     <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit User: {userToEdit?.displayName}</DialogTitle>
           <DialogDescription>
-            Make changes to the user's profile.
+            Make changes to the user's profile. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-6 py-4 max-h-[60vh] overflow-y-auto pr-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="displayName" className="text-right">
               Display Name
             </Label>
             <Input
               id="displayName"
-              value={newDisplayName}
-              onChange={(e) => setNewDisplayName(e.target.value)}
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
               className="col-span-3"
             />
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="textingId" className="text-right">
+              Texting ID
+            </Label>
+            <Input
+              id="textingId"
+              value={editTextingId}
+              onChange={(e) => setEditTextingId(e.target.value)}
+              className="col-span-3 font-mono"
+            />
+          </div>
+
+          {canEditRoles && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="role" className="text-right">
+                  Role
+                </Label>
+                <Select value={editRole} onValueChange={setEditRole}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {ROLES.map(role => (
+                            <SelectItem key={role} value={role} disabled={!canChangeRoleTo(role)}>
+                                {role}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              </div>
+          )}
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="status" className="text-right">
+              Status
+            </Label>
+            <Select value={editStatus} onValueChange={(v) => setEditStatus(v as 'Active' | 'Suspended')}>
+                <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+
+          {editStatus === 'Suspended' && (
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="suspensionReason" className="text-right pt-2">
+                    Reason
+                </Label>
+                <Textarea 
+                    id="suspensionReason"
+                    placeholder="Reason for suspension..."
+                    value={editSuspensionReason}
+                    onChange={(e) => setEditSuspensionReason(e.target.value)}
+                    className="col-span-3"
+                />
+              </div>
+          )}
+          
+          {canEditPassword && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="newPassword" className="text-right">
+                    New Password
+                </Label>
+                <Input 
+                    id="newPassword"
+                    type="password"
+                    placeholder="Leave blank to keep unchanged"
+                    value={editNewPassword}
+                    onChange={(e) => setEditNewPassword(e.target.value)}
+                    className="col-span-3"
+                />
+              </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleSaveChanges}>Save Changes</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    
-     <Dialog open={isPasswordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Password for: {userToEdit?.displayName}</DialogTitle>
-           <DialogDescription>
-            Enter a new password for the user.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="newPassword" className="text-right">
-              New Password
-            </Label>
-            <Input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="col-span-3"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handlePasswordSave}>Save Password</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -814,6 +794,9 @@ function SponsorManagementTool() {
                              <DialogContent className="max-w-3xl">
                                 <DialogHeader>
                                     <DialogTitle>Promotion Preview</DialogTitle>
+                                     <DialogDescription>
+                                        This is a live preview of how your ad will appear.
+                                    </DialogDescription>
                                 </DialogHeader>
                                 {currentPromo && (
                                 <div className="space-y-6 rounded-lg border p-4 bg-muted/30">

@@ -18,7 +18,6 @@ service cloud.firestore {
     }
     
     function isManager() {
-      // Check if the user document exists and has a role before trying to access it.
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
@@ -79,7 +78,10 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow write: if isManager() || isCoOwner() || isOwnerRole();
     }
   }
 }
+
+    

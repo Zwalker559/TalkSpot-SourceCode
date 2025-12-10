@@ -37,6 +37,10 @@
                     "description": "The user's account status",
                     "enum": ["Active", "Suspended"]
                 },
+                 "suspensionReason": {
+                    "type": "string",
+                    "description": "The reason provided for an account suspension."
+                },
                 "visibility": {
                     "type": "string",
                     "description": "The user's profile visibility in search.",
