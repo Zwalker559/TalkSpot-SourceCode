@@ -1,18 +1,12 @@
-
-
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,21 +23,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { errorEmitter, FirestorePermissionError } from '@/firebase';
 import { resetPassword } from '@/ai/flows/reset-password-flow';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
+import { format } from 'date-fns';
+import { createAuditLog, clearAuditLogs } from './actions';
 
 
 type UserProfile = {
@@ -69,6 +64,20 @@ type Promotion = {
   status: 'active' | 'disabled';
   displayWeight: number;
   location: 'header' | 'sidebar' | 'both';
+};
+
+type AuditLog = {
+    id: string;
+    actorUid: string;
+    actorDisplayName: string;
+    action: string;
+    timestamp: any;
+    targetInfo?: {
+        type: string;
+        uid?: string;
+        displayName?: string;
+    };
+    details?: Record<string, any>;
 };
 
 
@@ -152,7 +161,7 @@ function UserManagementTool() {
     }, [currentUser, firestore]);
 
  const canManage = (targetUser: UserProfile) => {
-    if (!currentUserRole || !targetUser.role || currentUser.uid === targetUser.uid) {
+    if (!currentUserRole || !targetUser.role || !currentUser || currentUser.uid === targetUser.uid) {
         return false;
     }
     const currentUserLevel = ROLE_HIERARCHY[currentUserRole];
@@ -191,7 +200,7 @@ function UserManagementTool() {
   }
 
   const handleSaveChanges = async () => {
-    if (!firestore || !userToEdit) return;
+    if (!firestore || !userToEdit || !currentUser || !currentUser.displayName) return;
 
     try {
         const batch = writeBatch(firestore);
@@ -200,22 +209,26 @@ function UserManagementTool() {
 
         const updates: any = {};
         const lookupUpdates: any = {};
+        const auditDetails: Record<string, any> = {};
 
         // Display Name
         if (editDisplayName !== userToEdit.displayName && editDisplayName.trim()) {
             updates.displayName = editDisplayName;
             lookupUpdates.displayName = editDisplayName;
+            auditDetails['displayName'] = { from: userToEdit.displayName, to: editDisplayName };
         }
 
         // Texting ID
         if (editTextingId !== userToEdit.textingId) {
             updates.textingId = editTextingId;
             lookupUpdates.textingId = editTextingId;
+             auditDetails['textingId'] = { from: userToEdit.textingId, to: editTextingId };
         }
 
         // Role
         if (editRole !== userToEdit.role && currentUserRole !== 'Sub-Manager') {
             updates.role = editRole;
+            auditDetails['role'] = { from: userToEdit.role, to: editRole };
         }
 
         // Status & Suspension Reason
@@ -227,12 +240,16 @@ function UserManagementTool() {
                     return;
                 }
                 updates.suspensionReason = editSuspensionReason;
+                auditDetails['status'] = { to: 'Suspended', reason: editSuspensionReason };
             } else {
                 updates.suspensionReason = ''; // Clear reason on activation
+                auditDetails['status'] = { to: 'Active' };
             }
         }
         
-        batch.update(userDocRef, updates);
+        if (Object.keys(updates).length > 0) {
+            batch.update(userDocRef, updates);
+        }
         if (Object.keys(lookupUpdates).length > 0) {
             batch.update(lookupDocRef, lookupUpdates);
         }
@@ -244,9 +261,20 @@ function UserManagementTool() {
                 return;
             }
             await resetPassword({ uid: userToEdit.uid, newPassword: editNewPassword });
+             auditDetails['password'] = 'Reset';
         }
         
         await batch.commit();
+
+        if (Object.keys(auditDetails).length > 0) {
+            await createAuditLog({
+                actorUid: currentUser.uid,
+                actorDisplayName: currentUser.displayName,
+                action: 'user.edit',
+                targetInfo: { type: 'user', uid: userToEdit.uid, displayName: userToEdit.displayName },
+                details: auditDetails
+            });
+        }
 
         toast({ title: 'Success', description: 'User details updated.' });
         setEditDialogOpen(false);
@@ -258,7 +286,7 @@ function UserManagementTool() {
   };
 
   const confirmRemoveUser = async () => {
-     if (!firestore || !userToRemove) return;
+     if (!firestore || !userToRemove || !currentUser || !currentUser.displayName) return;
 
     const batch = writeBatch(firestore);
     const userDocRef = doc(firestore, 'users', userToRemove.uid);
@@ -267,18 +295,22 @@ function UserManagementTool() {
     batch.delete(userDocRef);
     batch.delete(lookupDocRef);
     
-    batch.commit()
-      .then(() => {
+    try {
+        await batch.commit();
+        await createAuditLog({
+            actorUid: currentUser.uid,
+            actorDisplayName: currentUser.displayName,
+            action: 'user.delete',
+            targetInfo: { type: 'user', uid: userToRemove.uid, displayName: userToRemove.displayName }
+        });
         toast({ title: 'User Removed', description: `${userToRemove.displayName} has been removed.` });
-      })
-      .catch((serverError) => {
+    } catch (serverError) {
         console.error("Error removing user:", serverError)
         toast({ variant: 'destructive', title: 'Error', description: 'Could not remove user.' });
-      })
-      .finally(() => {
+    } finally {
         setRemoveDialogOpen(false);
         setUserToRemove(null);
-      });
+    }
   };
   
   // Determine permissions for the edit dialog
@@ -492,6 +524,7 @@ function UserManagementTool() {
 }
 
 function SponsorManagementTool() {
+    const { user: currentUser } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -538,6 +571,9 @@ function SponsorManagementTool() {
                 if (b.id === 'fallback') return -1;
                 return b.displayWeight - a.displayWeight;
             }));
+        }, (err) => {
+            console.error("Error listening to Sponsorships:", err);
+            // Don't toast here as it can be noisy
         });
 
         return () => unsubscribe();
@@ -581,21 +617,37 @@ function SponsorManagementTool() {
     };
 
     const handleSave = async () => {
-        if (!firestore || !currentPromo) return;
+        if (!firestore || !currentPromo || !currentUser || !currentUser.displayName) return;
 
         try {
             const promoData = { ...currentPromo };
-            if (promoData.id) {
-                const docRef = doc(firestore, 'Sponsorships', promoData.id);
-                delete promoData.id;
-                await setDoc(docRef, promoData, { merge: true });
-                toast({ title: "Promotion Updated" });
-            } else {
-                await addDoc(collection(firestore, 'Sponsorships'), {
+            const isNew = !promoData.id;
+            
+            if (isNew) {
+                const newDocRef = await addDoc(collection(firestore, 'Sponsorships'), {
                     ...promoData,
                     createdAt: serverTimestamp()
                 });
+                 await createAuditLog({
+                    actorUid: currentUser.uid,
+                    actorDisplayName: currentUser.displayName,
+                    action: 'promotion.create',
+                    targetInfo: { type: 'promotion', uid: newDocRef.id, displayName: promoData.title },
+                    details: promoData
+                });
                 toast({ title: "Promotion Added" });
+            } else {
+                const docRef = doc(firestore, 'Sponsorships', promoData.id);
+                delete promoData.id;
+                await setDoc(docRef, promoData, { merge: true });
+                await createAuditLog({
+                    actorUid: currentUser.uid,
+                    actorDisplayName: currentUser.displayName,
+                    action: 'promotion.edit',
+                    targetInfo: { type: 'promotion', uid: currentPromo.id, displayName: promoData.title },
+                    details: promoData
+                });
+                toast({ title: "Promotion Updated" });
             }
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error Saving Promotion', description: error.message });
@@ -605,10 +657,16 @@ function SponsorManagementTool() {
         }
     };
     
-    const handleDelete = async (promoId: string) => {
-        if (!firestore) return;
+    const handleDelete = async (promoId: string, promoTitle: string) => {
+        if (!firestore || !currentUser || !currentUser.displayName) return;
         try {
             await deleteDoc(doc(firestore, 'Sponsorships', promoId));
+             await createAuditLog({
+                actorUid: currentUser.uid,
+                actorDisplayName: currentUser.displayName,
+                action: 'promotion.delete',
+                targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle }
+            });
             toast({ title: 'Promotion Deleted' });
         } catch (error: any) {
              toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
@@ -664,7 +722,7 @@ function SponsorManagementTool() {
                                         <TableCell><Badge variant={promo.status === 'active' ? 'default' : 'secondary'}>{promo.status}</Badge></TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleEdit(promo)}><Edit className="h-4 w-4" /></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id)} disabled={promo.id === 'fallback'}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id, promo.title)} disabled={promo.id === 'fallback'}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -849,6 +907,237 @@ function SponsorManagementTool() {
     );
 }
 
+function AuditLogTool() {
+    const { user: currentUser } = useUser();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [logs, setLogs] = useState<AuditLog[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isClearConfirmOpen, setClearConfirmOpen] = useState(false);
+    const [isDownloadDialogOpen, setDownloadDialogOpen] = useState(false);
+    
+    // Download filter states
+    const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const [actions, setActions] = useState<string[]>([]);
+    const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+    const [selectedActions, setSelectedActions] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!firestore) return;
+        setLoading(true);
+
+        const logsQuery = query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
+        const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
+            const fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
+            setLogs(fetchedLogs);
+            
+            // Derive users and actions for filter dropdowns from the logs themselves
+            const uniqueUsers = new Map<string, string>();
+            const uniqueActions = new Set<string>();
+            fetchedLogs.forEach(log => {
+                if (!uniqueUsers.has(log.actorUid)) {
+                    uniqueUsers.set(log.actorUid, log.actorDisplayName);
+                }
+                uniqueActions.add(log.action);
+            });
+            setUsers(Array.from(uniqueUsers, ([id, name]) => ({ id, name })));
+            setActions(Array.from(uniqueActions));
+
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching audit logs:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch audit logs.' });
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [firestore, toast]);
+    
+    const handleClearLogs = async () => {
+        if (!currentUser) return;
+        try {
+            const result = await clearAuditLogs({ actorUid: currentUser.uid });
+             await createAuditLog({
+                actorUid: currentUser.uid,
+                actorDisplayName: currentUser.displayName || 'Owner',
+                action: 'audit.clear',
+                targetInfo: { type: 'system' }
+            });
+            toast({ title: 'Success', description: 'Audit logs have been cleared.' });
+            if (result.hasMore) {
+                toast({ title: 'Note', description: 'More than 500 logs existed. Run clear again to remove remaining logs.' });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setClearConfirmOpen(false);
+        }
+    };
+    
+    const handleDownload = () => {
+        let filteredLogs = logs;
+
+        if (selectedUsers.length > 0) {
+            filteredLogs = filteredLogs.filter(log => selectedUsers.includes(log.actorUid));
+        }
+        if (selectedActions.length > 0) {
+            filteredLogs = filteredLogs.filter(log => selectedActions.includes(log.action));
+        }
+
+        const dataStr = JSON.stringify(filteredLogs, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', `audit_logs_${new Date().toISOString()}.json`);
+        linkElement.click();
+        
+        setDownloadDialogOpen(false);
+    };
+
+    const renderDetail = (key: string, value: any) => {
+        if (typeof value === 'object' && value !== null) {
+            return (
+                <div className="pl-4">
+                    <span className="font-semibold">{key}:</span>
+                    <div className="pl-4 border-l ml-2">
+                        {Object.entries(value).map(([k, v]) => renderDetail(k, v))}
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <div key={key}>
+                <span className="font-semibold">{key}:</span> {String(value)}
+            </div>
+        )
+    }
+
+    return (
+        <>
+            <Card>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Audit Logs</CardTitle>
+                        <CardDescription>Records of all administrative actions taken by staff.</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setDownloadDialogOpen(true)}><FileDown className="mr-2"/> Download</Button>
+                        <Button variant="destructive" onClick={() => setClearConfirmOpen(true)}><Trash2 className="mr-2"/> Clear All Logs</Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <p>Loading logs...</p>
+                    ) : logs.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-8">No audit logs found.</p>
+                    ) : (
+                        <Accordion type="single" collapsible className="w-full">
+                            {logs.map(log => (
+                                <AccordionItem value={log.id} key={log.id}>
+                                    <AccordionTrigger>
+                                        <div className="flex items-center gap-4 text-sm w-full">
+                                            <div className="flex items-center gap-2 w-1/4">
+                                                <ShieldCheck className="h-4 w-4 text-muted-foreground"/>
+                                                <span className="font-semibold">{log.actorDisplayName}</span>
+                                            </div>
+                                             <div className="w-2/4">
+                                                <Badge variant="outline">{log.action}</Badge>
+                                             </div>
+                                            <div className="text-muted-foreground text-xs w-1/4 text-right">
+                                                {format(log.timestamp.toDate(), 'PPP p')}
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="bg-muted/50 p-4 rounded-md">
+                                        <div className="text-xs font-mono space-y-2">
+                                           <h4 className="font-semibold text-sm mb-2">Log Details</h4>
+                                           <p><span className="font-semibold">Actor ID:</span> {log.actorUid}</p>
+                                           {log.targetInfo?.type && <p><span className="font-semibold">Target Type:</span> {log.targetInfo.type}</p>}
+                                           {log.targetInfo?.uid && <p><span className="font-semibold">Target ID:</span> {log.targetInfo.uid}</p>}
+                                           {log.targetInfo?.displayName && <p><span className="font-semibold">Target Name:</span> {log.targetInfo.displayName}</p>}
+                                           {log.details && (
+                                            <div>
+                                                <p className="font-semibold mt-2">Changes:</p>
+                                                <div className="pl-4 border-l ml-2 space-y-1 mt-1">
+                                                    {Object.entries(log.details).map(([key, value]) => renderDetail(key, value))}
+                                                </div>
+                                            </div>
+                                           )}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    )}
+                </CardContent>
+            </Card>
+
+            <AlertDialog open={isClearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>This action is irreversible and will permanently delete all audit logs. This cannot be undone.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearLogs} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Yes, delete all logs</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            <Dialog open={isDownloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Download Audit Logs</DialogTitle>
+                        <DialogDescription>Select filters to apply to your JSON download.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <h4 className="font-medium mb-2">Filter by User</h4>
+                             <ScrollArea className="h-32 w-full rounded-md border p-2">
+                                {users.map(user => (
+                                    <div key={user.id} className="flex items-center gap-2 mb-1">
+                                        <Checkbox 
+                                            id={`user-${user.id}`}
+                                            checked={selectedUsers.includes(user.id)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))
+                                            }}
+                                        />
+                                        <Label htmlFor={`user-${user.id}`}>{user.name}</Label>
+                                    </div>
+                                ))}
+                            </ScrollArea>
+                        </div>
+                         <div>
+                            <h4 className="font-medium mb-2">Filter by Action</h4>
+                            <ScrollArea className="h-32 w-full rounded-md border p-2">
+                                {actions.map(action => (
+                                    <div key={action} className="flex items-center gap-2 mb-1">
+                                        <Checkbox 
+                                            id={`action-${action}`}
+                                            checked={selectedActions.includes(action)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedActions(prev => checked ? [...prev, action] : prev.filter(a => a !== action))
+                                            }}
+                                        />
+                                        <Label htmlFor={`action-${action}`}>{action}</Label>
+                                    </div>
+                                ))}
+                            </ScrollArea>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                        <Button onClick={handleDownload}><FileDown className="mr-2"/> Download JSON</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
 export default function AdminDashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -871,6 +1160,7 @@ export default function AdminDashboardPage() {
     return null;
   }
 
+  const isOwner = userRole === 'Owner';
 
   if (!['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole)) {
     return (
@@ -894,9 +1184,10 @@ export default function AdminDashboardPage() {
       </div>
 
       <Tabs defaultValue="user-management" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
           <TabsTrigger value="sponsors">Sponsors</TabsTrigger>
+          {isOwner && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
           <UserManagementTool />
@@ -904,6 +1195,11 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
+        {isOwner && (
+            <TabsContent value="audit-logs" className="mt-6">
+                <AuditLogTool />
+            </TabsContent>
+        )}
       </Tabs>
     </div>
   );

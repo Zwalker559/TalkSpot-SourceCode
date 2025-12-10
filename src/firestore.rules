@@ -78,10 +78,13 @@ service cloud.firestore {
     }
     
     match /Sponsorships/{sponsorshipId} {
-        allow read: if true;
-        allow write: if isManager() || isCoOwner() || isOwnerRole();
+      allow read: if true;
+      allow write: if isManager() || isCoOwner() || isOwnerRole();
+    }
+
+    match /audit_logs/{logId} {
+        allow read, delete: if isOwnerRole();
+        allow create: if isAuthenticatedUser(); // Allow any authenticated user to create (will be triggered by server action)
     }
   }
 }
-
-    

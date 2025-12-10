@@ -226,6 +226,56 @@
             },
             "required": ["uid", "email"]
         },
+        "auditLog": {
+            "title": "Audit Log",
+            "description": "Records administrative actions taken by staff.",
+            "type": "object",
+            "properties": {
+                "actorUid": {
+                    "type": "string",
+                    "description": "UID of the staff member who performed the action."
+                },
+                "actorDisplayName": {
+                    "type": "string",
+                    "description": "Display name of the staff member."
+                },
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "user.edit.display_name",
+                        "user.edit.texting_id",
+                        "user.edit.role",
+                        "user.edit.status.suspended",
+                        "user.edit.status.activated",
+                        "user.edit.password_reset",
+                        "user.delete",
+                        "promotion.create",
+                        "promotion.edit",
+                        "promotion.delete",
+                        "audit.clear"
+                    ],
+                    "description": "The type of action performed."
+                },
+                "timestamp": {
+                    "$ref": "#/entities/timestamp",
+                    "description": "When the action occurred."
+                },
+                "targetInfo": {
+                    "type": "object",
+                    "description": "Information about the entity that was acted upon.",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["user", "promotion", "system"]},
+                        "uid": {"type": "string"},
+                        "displayName": {"type": "string"}
+                    }
+                },
+                "details": {
+                    "type": "object",
+                    "description": "A map of specific changes made during the action."
+                }
+            },
+            "required": ["actorUid", "actorDisplayName", "action", "timestamp"]
+        },
         "timestamp": {
             "title": "Timestamp",
             "description": "A server-generated timestamp.",
@@ -291,6 +341,12 @@
                 "$ref": "#/entities/promotion"
             },
             "description": "Stores all sponsor promotions and advertisements."
+        },
+        "/audit_logs/{logId}": {
+            "schema": {
+                "$ref": "#/entities/auditLog"
+            },
+            "description": "Stores records of administrative actions."
         }
     }
 }
