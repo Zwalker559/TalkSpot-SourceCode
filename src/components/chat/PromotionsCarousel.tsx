@@ -27,7 +27,7 @@ type Promotion = {
   type: 'text' | 'image';
   content: string;
   logoUrl?: string;
-  actionType: 'url' | 'popup' | 'enlarge';
+  actionType: 'url' | 'popup' | 'enlarge' | 'none';
   linkUrl?: string;
   popupContent?: string;
   status: 'active' | 'disabled';
@@ -85,6 +85,8 @@ export default function PromotionsCarousel() {
   }, [firestore]);
 
   const handlePromoClick = (e: React.MouseEvent, promo: Promotion) => {
+    if (promo.actionType === 'none') return;
+    
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const clickX = e.clientX - rect.left;

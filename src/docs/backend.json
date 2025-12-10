@@ -107,7 +107,7 @@
                 },
                  "actionType": {
                     "type": "string",
-                    "enum": ["url", "popup", "enlarge"],
+                    "enum": ["url", "popup", "enlarge", "none"],
                     "description": "The action to perform when the promotion is clicked."
                 },
                 "location": {
@@ -294,5 +294,3 @@
         }
     }
 }
-
-    

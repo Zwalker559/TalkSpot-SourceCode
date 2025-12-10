@@ -63,7 +63,7 @@ type Promotion = {
   type: 'text' | 'image';
   content: string;
   logoUrl?: string;
-  actionType: 'url' | 'popup' | 'enlarge';
+  actionType: 'url' | 'popup' | 'enlarge' | 'none';
   linkUrl?: string;
   popupContent?: string;
   status: 'active' | 'disabled';
@@ -498,7 +498,8 @@ function SponsorManagementTool() {
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
     const [currentPromo, setCurrentPromo] = useState<Partial<Promotion> | null>(null);
     const [isPreviewOpen, setPreviewOpen] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageContentInputRef = useRef<HTMLInputElement>(null);
+    const logoUrlInputRef = useRef<HTMLInputElement>(null);
 
     const fallbackPromo: Promotion = {
         id: 'fallback',
@@ -542,7 +543,7 @@ function SponsorManagementTool() {
         return () => unsubscribe();
     }, [firestore]);
     
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'content' | 'logoUrl') => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             if (file.size > 500 * 1024) { // 500KB limit
@@ -552,7 +553,7 @@ function SponsorManagementTool() {
             const reader = new FileReader();
             reader.onload = (loadEvent) => {
                 const dataUrl = loadEvent.target?.result as string;
-                handleDialogInputChange('content', dataUrl);
+                handleDialogInputChange(field, dataUrl);
             };
             reader.readAsDataURL(file);
         }
@@ -569,7 +570,7 @@ function SponsorManagementTool() {
             type: 'text',
             content: '',
             logoUrl: '',
-            actionType: 'url',
+            actionType: 'none',
             linkUrl: '',
             popupContent: '',
             location: 'both',
@@ -705,8 +706,16 @@ function SponsorManagementTool() {
                                         <Textarea id="promo-content" value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="promo-logoUrl">Logo URL (Optional, Base64 or web URL)</Label>
-                                        <Input id="promo-logoUrl" value={currentPromo.logoUrl || ''} onChange={(e) => handleDialogInputChange('logoUrl', e.target.value)} />
+                                        <Label htmlFor="promo-logoUrl">Logo (Optional)</Label>
+                                        <Card>
+                                            <CardContent className="p-2 space-y-2">
+                                                <Textarea id="promo-logoUrl" placeholder="https://... or data:image/..." value={currentPromo.logoUrl || ''} onChange={(e) => handleDialogInputChange('logoUrl', e.target.value)} />
+                                                <Button variant="outline" size="sm" onClick={() => logoUrlInputRef.current?.click()}>
+                                                    <Upload className="mr-2 h-4 w-4" /> Upload Logo
+                                                </Button>
+                                                <Input type="file" ref={logoUrlInputRef} onChange={(e) => handleImageUpload(e, 'logoUrl')} className="hidden" accept="image/png, image/jpeg, image/gif" />
+                                            </CardContent>
+                                        </Card>
                                     </div>
                                 </>
                             ) : (
@@ -719,12 +728,12 @@ function SponsorManagementTool() {
                                                  <Textarea id="promo-content" placeholder="https://... or data:image/..." value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} />
                                             </div>
                                             <div className="flex items-center gap-2 mt-2">
-                                                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                                                <Button variant="outline" size="sm" onClick={() => imageContentInputRef.current?.click()}>
                                                     <Upload className="mr-2 h-4 w-4" /> Upload Image
                                                 </Button>
                                                 <span className="text-xs text-muted-foreground">Or paste URL above.</span>
                                             </div>
-                                             <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/png, image/jpeg, image/gif" />
+                                             <Input type="file" ref={imageContentInputRef} onChange={(e) => handleImageUpload(e, 'content')} className="hidden" accept="image/png, image/jpeg, image/gif" />
                                         </CardContent>
                                     </Card>
                                 </div>
@@ -735,9 +744,10 @@ function SponsorManagementTool() {
                                 <Select value={currentPromo.actionType} onValueChange={(v) => handleDialogInputChange('actionType', v)}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
                                         <SelectItem value="url">Open URL</SelectItem>
                                         <SelectItem value="popup">Show Popup</SelectItem>
-                                        <SelectItem value="enlarge">Enlarge Image</SelectItem>
+                                        {currentPromo.type === 'image' && <SelectItem value="enlarge">Enlarge Image</SelectItem>}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -898,5 +908,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
