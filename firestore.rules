@@ -45,7 +45,8 @@ service cloud.firestore {
     }
 
     match /password_recovery/{userId} {
-      allow read, create, update: if isOwner(userId);
+      allow read: if true;
+      allow create, update: if isOwner(userId);
     }
 
     match /requests/{requestId} {

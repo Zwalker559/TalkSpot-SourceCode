@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -77,8 +78,6 @@ export default function PromotionsCarousel() {
       },
       (error) => {
         console.error("Error listening to Sponsorships collection:", error);
-        // Do not throw a custom error here in a snapshot listener
-        // as it can cause uncaught exceptions in dev mode.
       }
     );
 
