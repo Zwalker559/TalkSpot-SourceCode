@@ -289,6 +289,13 @@ function UserManagementTool() {
   const confirmRemoveUser = async () => {
      if (!firestore || !userToRemove || !currentUser || !currentUser.displayName) return;
 
+    await createAuditLog({
+        actorUid: currentUser.uid,
+        actorDisplayName: currentUser.displayName,
+        action: 'user.delete',
+        targetInfo: { type: 'user', uid: userToRemove.uid, displayName: userToRemove.displayName }
+    });
+
     const batch = writeBatch(firestore);
     const userDocRef = doc(firestore, 'users', userToRemove.uid);
     const lookupDocRef = doc(firestore, 'user_lookups', userToRemove.uid);
@@ -298,12 +305,6 @@ function UserManagementTool() {
     
     try {
         await batch.commit();
-        await createAuditLog({
-            actorUid: currentUser.uid,
-            actorDisplayName: currentUser.displayName,
-            action: 'user.delete',
-            targetInfo: { type: 'user', uid: userToRemove.uid, displayName: userToRemove.displayName }
-        });
         toast({ title: 'User Removed', description: `${userToRemove.displayName} has been removed.` });
     } catch (serverError) {
         console.error("Error removing user:", serverError)
@@ -625,33 +626,32 @@ function SponsorManagementTool() {
             const isNew = !promoData.id;
     
             if (isNew) {
-                const newDocRef = await addDoc(collection(firestore, 'Sponsorships'), {
-                    ...promoData,
-                    createdAt: serverTimestamp()
-                });
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.create',
-                    targetInfo: { type: 'promotion', uid: newDocRef.id, displayName: promoData.title },
                     details: promoData
+                });
+                const newDocRef = await addDoc(collection(firestore, 'Sponsorships'), {
+                    ...promoData,
+                    createdAt: serverTimestamp()
                 });
                 toast({ title: "Promotion Added" });
             } else {
                 const docRef = doc(firestore, 'Sponsorships', promoData.id!);
                 const originalDoc = await getDoc(docRef);
-                const originalData = originalDoc.data();
-                
-                delete promoData.id;
-                await setDoc(docRef, promoData, { merge: true });
                 
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.edit',
                     targetInfo: { type: 'promotion', uid: originalDoc.id, displayName: promoData.title },
-                    details: { from: originalData, to: promoData }
+                    details: { from: originalDoc.data(), to: promoData }
                 });
+                
+                delete promoData.id;
+                await setDoc(docRef, promoData, { merge: true });
+                
                 toast({ title: "Promotion Updated" });
             }
         } catch (error: any) {
@@ -664,14 +664,16 @@ function SponsorManagementTool() {
     
     const handleDelete = async (promoId: string, promoTitle: string) => {
         if (!firestore || !currentUser || !currentUser.displayName) return;
+        
+        await createAuditLog({
+            actorUid: currentUser.uid,
+            actorDisplayName: currentUser.displayName,
+            action: 'promotion.delete',
+            targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle }
+        });
+
         try {
             await deleteDoc(doc(firestore, 'Sponsorships', promoId));
-             await createAuditLog({
-                actorUid: currentUser.uid,
-                actorDisplayName: currentUser.displayName,
-                action: 'promotion.delete',
-                targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle }
-            });
             toast({ title: 'Promotion Deleted' });
         } catch (error: any) {
              toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
@@ -1262,3 +1264,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
