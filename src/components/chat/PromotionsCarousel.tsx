@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -19,7 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
 
 
@@ -51,14 +50,31 @@ export default function PromotionsCarousel() {
     const q = query(sponsorshipsColRef, where('status', '==', 'active'));
 
     const unsubscribe = onSnapshot(q,
-      (snapshot) => {
-        const activePromos: Promotion[] = [];
+      async (snapshot) => {
+        let activePromos: Promotion[] = [];
         snapshot.forEach(doc => {
             const data = doc.data() as Omit<Promotion, 'id'>;
             if (data.location === 'header' || data.location === 'both') {
                 activePromos.push({ id: doc.id, ...data });
             }
         });
+
+        if (activePromos.length === 0) {
+            // No active promotions found, try to get the fallback
+            try {
+                const fallbackDoc = await getDoc(doc(firestore, 'Sponsorships', 'fallback'));
+                if (fallbackDoc.exists()) {
+                    const fallbackData = fallbackDoc.data() as Omit<Promotion, 'id'>;
+                    // Only use fallback if it's active and for the correct location
+                    if (fallbackData.status === 'active' && (fallbackData.location === 'header' || fallbackData.location === 'both')) {
+                         activePromos.push({ id: fallbackDoc.id, ...fallbackData });
+                    }
+                }
+            } catch (error) {
+                 console.error("Could not fetch fallback promotion:", error);
+            }
+        }
+
         setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
       },
       (serverError) => {
@@ -167,5 +183,3 @@ export default function PromotionsCarousel() {
     </>
   );
 }
-
-    

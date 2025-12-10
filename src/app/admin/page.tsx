@@ -1,8 +1,6 @@
-
-
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,7 +35,7 @@ import {
 } from '@/components/ui/table';
 import { useEffect, useState, useRef } from 'react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -514,16 +512,45 @@ function SponsorManagementTool() {
     const [currentPromo, setCurrentPromo] = useState<Partial<Promotion> | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const fallbackPromo: Promotion = {
+        id: 'fallback',
+        title: 'Your Ad Here',
+        type: 'text',
+        content: 'This is the default ad. Edit it in the admin panel.',
+        actionType: 'popup',
+        popupContent: 'This is fallback content.',
+        status: 'active',
+        location: 'both',
+        displayWeight: 0,
+    };
+
     useEffect(() => {
         if (!firestore) return;
+
         const promoColRef = collection(firestore, 'Sponsorships');
-        const unsubscribe = onSnapshot(promoColRef, (snapshot) => {
-            const promoList: Promotion[] = snapshot.docs.map(doc => ({
+        const unsubscribe = onSnapshot(promoColRef, async (snapshot) => {
+            let promoList: Promotion[] = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             } as Promotion));
-            setPromotions(promoList.sort((a,b) => b.displayWeight - a.displayWeight));
+
+            const fallbackExists = promoList.some(p => p.id === 'fallback');
+            if (!fallbackExists) {
+                try {
+                    await setDoc(doc(firestore, 'Sponsorships', 'fallback'), fallbackPromo);
+                    promoList.push(fallbackPromo);
+                } catch (e) {
+                    console.error("Could not create fallback promo:", e);
+                }
+            }
+
+            setPromotions(promoList.sort((a, b) => {
+                if (a.id === 'fallback') return 1;
+                if (b.id === 'fallback') return -1;
+                return b.displayWeight - a.displayWeight;
+            }));
         });
+
         return () => unsubscribe();
     }, [firestore]);
     
@@ -612,7 +639,7 @@ function SponsorManagementTool() {
                     <div>
                         <CardTitle>Sponsors & Promotions</CardTitle>
                         <CardDescription>
-                            Manage advertisements displayed in the app.
+                            Manage advertisements displayed in the app. The fallback ad is used when no others are active.
                         </CardDescription>
                     </div>
                     <Button onClick={handleAddNew}>
@@ -633,14 +660,22 @@ function SponsorManagementTool() {
                         <TableBody>
                             {promotions.length > 0 ? (
                                 promotions.map((promo) => (
-                                    <TableRow key={promo.id}>
-                                        <TableCell className='font-medium'>{promo.title}</TableCell>
+                                    <TableRow key={promo.id} className={promo.id === 'fallback' ? 'bg-muted/30' : ''}>
+                                        <TableCell className='font-medium flex items-center'>
+                                            {promo.title}
+                                            {promo.id === 'fallback' && (
+                                                <Badge variant="outline" className="ml-2 flex items-center gap-1">
+                                                    <Star className="h-3 w-3" />
+                                                    Fallback
+                                                </Badge>
+                                            )}
+                                        </TableCell>
                                         <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
                                         <TableCell><Badge variant="outline">{promo.location}</Badge></TableCell>
                                         <TableCell><Badge variant={promo.status === 'active' ? 'default' : 'secondary'}>{promo.status}</Badge></TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleEdit(promo)}><Edit className="h-4 w-4" /></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id)} disabled={promo.id === 'fallback'}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -733,7 +768,7 @@ function SponsorManagementTool() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="promo-displayWeight">Display Weight</Label>
-                                    <Input id="promo-displayWeight" type="number" value={currentPromo.displayWeight} onChange={(e) => handleDialogInputChange('displayWeight', e.target.valueAsNumber)} />
+                                    <Input id="promo-displayWeight" type="number" value={currentPromo.displayWeight} onChange={(e) => handleDialogInputChange('displayWeight', e.target.valueAsNumber || 0)} />
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Switch id="promo-status" checked={currentPromo.status === 'active'} onCheckedChange={(c) => handleDialogInputChange('status', c ? 'active' : 'disabled')} />
