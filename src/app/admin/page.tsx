@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye } from 'lucide-react';
@@ -630,18 +631,26 @@ function SponsorManagementTool() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {promotions.map((promo) => (
-                                <TableRow key={promo.id}>
-                                    <TableCell className='font-medium'>{promo.title}</TableCell>
-                                    <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
-                                    <TableCell><Badge variant="outline">{promo.location}</Badge></TableCell>
-                                    <TableCell><Badge variant={promo.status === 'active' ? 'default' : 'secondary'}>{promo.status}</Badge></TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(promo)}><Edit className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            {promotions.length > 0 ? (
+                                promotions.map((promo) => (
+                                    <TableRow key={promo.id}>
+                                        <TableCell className='font-medium'>{promo.title}</TableCell>
+                                        <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
+                                        <TableCell><Badge variant="outline">{promo.location}</Badge></TableCell>
+                                        <TableCell><Badge variant={promo.status === 'active' ? 'default' : 'secondary'}>{promo.status}</Badge></TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(promo)}><Edit className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center">
+                                        No Sponsorships found.
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
@@ -668,7 +677,7 @@ function SponsorManagementTool() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="promo-content">{currentPromo.type === 'image' ? 'Image URL or Base64' : 'Text Content'}</Label>
+                                    <Label htmlFor="promo-content">{currentPromo.type === 'image' ? 'Image URL or Upload' : 'Text Content'}</Label>
                                      <p className="text-xs text-muted-foreground">
                                         You can paste a web URL or upload a file to convert it to Base64.
                                     </p>
