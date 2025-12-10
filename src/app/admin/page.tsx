@@ -38,7 +38,7 @@ import { resetPassword } from '@/ai/flows/reset-password-flow';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { createAuditLog, clearAuditLogs } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -919,10 +919,16 @@ function AuditLogTool() {
     const [isDownloadDialogOpen, setDownloadDialogOpen] = useState(false);
     
     // Download filter states
-    const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
-    const [actions, setActions] = useState<string[]>([]);
+    const [allUsers, setAllUsers] = useState<{ id: string; name: string }[]>([]);
+    const [allActions, setAllActions] = useState<string[]>([]);
+    
+    const [filterUsers, setFilterUsers] = useState(false);
+    const [filterActions, setFilterActions] = useState(false);
+    const [filterTime, setFilterTime] = useState(false);
+
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const [selectedActions, setSelectedActions] = useState<string[]>([]);
+    const [selectedTimeRange, setSelectedTimeRange] = useState('all');
 
     useEffect(() => {
         if (!firestore) return;
@@ -933,17 +939,19 @@ function AuditLogTool() {
             const fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
             setLogs(fetchedLogs);
             
-            // Derive users and actions for filter dropdowns from the logs themselves
             const uniqueUsers = new Map<string, string>();
             const uniqueActions = new Set<string>();
             fetchedLogs.forEach(log => {
-                if (!uniqueUsers.has(log.actorUid)) {
+                if (log.actorUid && !uniqueUsers.has(log.actorUid)) {
                     uniqueUsers.set(log.actorUid, log.actorDisplayName);
+                }
+                if (log.targetInfo?.uid && !uniqueUsers.has(log.targetInfo.uid)) {
+                     uniqueUsers.set(log.targetInfo.uid, log.targetInfo.displayName || 'Unknown');
                 }
                 uniqueActions.add(log.action);
             });
-            setUsers(Array.from(uniqueUsers, ([id, name]) => ({ id, name })));
-            setActions(Array.from(uniqueActions));
+            setAllUsers(Array.from(uniqueUsers, ([id, name]) => ({ id, name })).sort((a,b) => a.name.localeCompare(b.name)));
+            setAllActions(Array.from(uniqueActions).sort());
 
             setLoading(false);
         }, (error) => {
@@ -977,13 +985,23 @@ function AuditLogTool() {
     };
     
     const handleDownload = () => {
-        let filteredLogs = logs;
+        let filteredLogs = [...logs];
 
-        if (selectedUsers.length > 0) {
-            filteredLogs = filteredLogs.filter(log => selectedUsers.includes(log.actorUid));
+        if (filterUsers && selectedUsers.length > 0) {
+            filteredLogs = filteredLogs.filter(log => selectedUsers.includes(log.actorUid) || (log.targetInfo?.uid && selectedUsers.includes(log.targetInfo.uid)));
         }
-        if (selectedActions.length > 0) {
+        if (filterActions && selectedActions.length > 0) {
             filteredLogs = filteredLogs.filter(log => selectedActions.includes(log.action));
+        }
+        if (filterTime && selectedTimeRange !== 'all') {
+            let startDate: Date;
+            switch(selectedTimeRange) {
+                case '24h': startDate = subDays(new Date(), 1); break;
+                case '7d': startDate = subDays(new Date(), 7); break;
+                case '30d': startDate = subDays(new Date(), 30); break;
+                default: startDate = new Date(0); 
+            }
+            filteredLogs = filteredLogs.filter(log => log.timestamp.toDate() >= startDate);
         }
 
         const dataStr = JSON.stringify(filteredLogs, null, 2);
@@ -1000,7 +1018,7 @@ function AuditLogTool() {
     const renderDetail = (key: string, value: any) => {
         if (typeof value === 'object' && value !== null) {
             return (
-                <div className="pl-4">
+                <div key={key} className="pl-4">
                     <span className="font-semibold">{key}:</span>
                     <div className="pl-4 border-l ml-2">
                         {Object.entries(value).map(([k, v]) => renderDetail(k, v))}
@@ -1088,47 +1106,82 @@ function AuditLogTool() {
                 </AlertDialogContent>
             </AlertDialog>
             
-            <Dialog open={isDownloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+             <Dialog open={isDownloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Download Audit Logs</DialogTitle>
-                        <DialogDescription>Select filters to apply to your JSON download.</DialogDescription>
+                        <DialogDescription>Select categories and options to filter your JSON download.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div>
-                            <h4 className="font-medium mb-2">Filter by User</h4>
-                             <ScrollArea className="h-32 w-full rounded-md border p-2">
-                                {users.map(user => (
-                                    <div key={user.id} className="flex items-center gap-2 mb-1">
-                                        <Checkbox 
-                                            id={`user-${user.id}`}
-                                            checked={selectedUsers.includes(user.id)}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))
-                                            }}
-                                        />
-                                        <Label htmlFor={`user-${user.id}`}>{user.name}</Label>
-                                    </div>
-                                ))}
-                            </ScrollArea>
+                        {/* User Filter */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Checkbox id="filter-user-cat" checked={filterUsers} onCheckedChange={(c) => setFilterUsers(c as boolean)} />
+                                <Label htmlFor="filter-user-cat" className="font-medium">Filter by User</Label>
+                            </div>
+                            {filterUsers && (
+                                <ScrollArea className="h-32 w-full rounded-md border p-2 ml-6">
+                                    {allUsers.map(user => (
+                                        <div key={user.id} className="flex items-center gap-2 mb-1">
+                                            <Checkbox 
+                                                id={`user-${user.id}`}
+                                                checked={selectedUsers.includes(user.id)}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))
+                                                }}
+                                            />
+                                            <Label htmlFor={`user-${user.id}`}>{user.name}</Label>
+                                        </div>
+                                    ))}
+                                </ScrollArea>
+                            )}
                         </div>
-                         <div>
-                            <h4 className="font-medium mb-2">Filter by Action</h4>
-                            <ScrollArea className="h-32 w-full rounded-md border p-2">
-                                {actions.map(action => (
-                                    <div key={action} className="flex items-center gap-2 mb-1">
-                                        <Checkbox 
-                                            id={`action-${action}`}
-                                            checked={selectedActions.includes(action)}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedActions(prev => checked ? [...prev, action] : prev.filter(a => a !== action))
-                                            }}
-                                        />
-                                        <Label htmlFor={`action-${action}`}>{action}</Label>
-                                    </div>
-                                ))}
-                            </ScrollArea>
+
+                        {/* Action Filter */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Checkbox id="filter-action-cat" checked={filterActions} onCheckedChange={(c) => setFilterActions(c as boolean)} />
+                                <Label htmlFor="filter-action-cat" className="font-medium">Filter by Action</Label>
+                            </div>
+                            {filterActions && (
+                                <ScrollArea className="h-32 w-full rounded-md border p-2 ml-6">
+                                    {allActions.map(action => (
+                                        <div key={action} className="flex items-center gap-2 mb-1">
+                                            <Checkbox 
+                                                id={`action-${action}`}
+                                                checked={selectedActions.includes(action)}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedActions(prev => checked ? [...prev, action] : prev.filter(a => a !== action))
+                                                }}
+                                            />
+                                            <Label htmlFor={`action-${action}`}>{action}</Label>
+                                        </div>
+                                    ))}
+                                </ScrollArea>
+                            )}
                         </div>
+                        
+                        {/* Time Filter */}
+                         <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Checkbox id="filter-time-cat" checked={filterTime} onCheckedChange={(c) => setFilterTime(c as boolean)} />
+                                <Label htmlFor="filter-time-cat" className="font-medium">Filter by Time Range</Label>
+                            </div>
+                            {filterTime && (
+                               <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
+                                    <SelectTrigger className="w-[180px] ml-6">
+                                        <SelectValue placeholder="Select a time range" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="24h">Last 24 hours</SelectItem>
+                                        <SelectItem value="7d">Last 7 days</SelectItem>
+                                        <SelectItem value="30d">Last 30 days</SelectItem>
+                                        <SelectItem value="all">All time</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        </div>
+
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>

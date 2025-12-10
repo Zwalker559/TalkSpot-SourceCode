@@ -13,32 +13,31 @@ service cloud.firestore {
     }
 
     function isAuthenticatedUser() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['User', 'Sub-Manager', 'Lead-Manager', 'Co-Owner', 'Owner'];
+      return request.auth != null;
     }
     
     function isManager() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return role in ['Lead-Manager', 'Sub-Manager'];
     }
     
     function isCoOwner() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Co-Owner';
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return role == 'Co-Owner';
     }
 
     function isOwnerRole() {
-       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Owner';
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return role == 'Owner';
     }
 
     match /users/{userId} {
-      allow read: if request.auth.uid != null;
+      allow read: if isAuthenticatedUser();
       allow create: if isOwner(userId);
       // Hierarchical update logic
       allow update: if isOwner(userId) || 
                     (isOwnerRole()) ||
-                    (isCoOwner() && getUserData(userId).role != 'Owner') ||
+                    (isCoOwner() && getUserData(userId).role != 'Owner' && getUserData(userId).role != 'Co-Owner') ||
                     (isManager() && getUserData(request.auth.uid).role == 'Lead-Manager' && !(getUserData(userId).role in ['Owner', 'Co-Owner', 'Lead-Manager'])) ||
                     (isManager() && getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
       
@@ -53,7 +52,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isOwner(request.resource.data.uid);
       allow update: if isOwner(request.resource.data.uid) || isManager() || isCoOwner() || isOwnerRole();
-      allow delete: if isManager() || isCoOwner() || isOwnerRole();
+      allow delete: if isOwnerRole() || isCoOwner() || isManager();
     }
 
     match /password_recovery/{userId} {
@@ -68,22 +67,24 @@ service cloud.firestore {
     }
 
     match /conversations/{conversationId} {
-      allow read, update, delete: if request.auth.uid in resource.data.participants;
+      allow read, update: if request.auth.uid in resource.data.participants;
+      allow delete: if isOwnerRole() || (request.auth.uid in resource.data.participants);
       allow create: if request.auth.uid in request.resource.data.participants;
     }
 
     match /conversations/{conversationId}/messages/{messageId} {
-       allow read, delete: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+       allow read: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
        allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+       allow delete: if isOwnerRole() || (isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants);
     }
     
     match /Sponsorships/{sponsorshipId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isManager() || isCoOwner() || isOwnerRole();
     }
 
     match /audit_logs/{logId} {
-        allow read, delete: if isOwnerRole();
-        allow create: if isAuthenticatedUser(); // Allow any authenticated user to create (will be triggered by server action)
+        allow read, write: if isOwnerRole();
     }
   }
 }
