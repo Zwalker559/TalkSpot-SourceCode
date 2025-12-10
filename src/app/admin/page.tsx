@@ -733,7 +733,7 @@ function SponsorManagementTool() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="promo-displayWeight">Display Weight</Label>
-                                    <Input id="promo-displayWeight" type="number" value={currentPromo.displayWeight} onChange={(e) => handleDialogInputChange('displayWeight', Number(e.target.value))} />
+                                    <Input id="promo-displayWeight" type="number" value={currentPromo.displayWeight} onChange={(e) => handleDialogInputChange('displayWeight', e.target.valueAsNumber)} />
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Switch id="promo-status" checked={currentPromo.status === 'active'} onCheckedChange={(c) => handleDialogInputChange('status', c ? 'active' : 'disabled')} />
