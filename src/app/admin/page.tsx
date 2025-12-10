@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star } from 'lucide-react';
@@ -56,7 +57,7 @@ type UserProfile = {
   displayName: string;
   email: string;
   photoURL?: string;
-  role: 'User' | 'Sub-Manager' | 'Lead-Manager';
+  role: 'User' | 'Sub-Manager' | 'Lead-Manager' | 'Co-Owner' | 'Owner';
   status?: 'Active' | 'Suspended';
   textingId: string;
 };
@@ -76,7 +77,15 @@ type Promotion = {
 };
 
 
-const ROLES = ['User', 'Sub-Manager', 'Lead-Manager'];
+const ROLES = ['User', 'Sub-Manager', 'Lead-Manager', 'Co-Owner', 'Owner'];
+const ROLE_HIERARCHY: { [key: string]: number } = {
+  'User': 0,
+  'Sub-Manager': 1,
+  'Lead-Manager': 2,
+  'Co-Owner': 3,
+  'Owner': 4,
+};
+
 
 function UserManagementTool() {
   const { user: currentUser } = useUser();
@@ -123,6 +132,7 @@ function UserManagementTool() {
       setUsers(userList);
       setLoading(false);
     }, (serverError) => {
+        // This will be replaced by a console log in production
         const permissionError = new FirestorePermissionError({
             path: usersColRef.path,
             operation: 'list',
@@ -153,16 +163,22 @@ function UserManagementTool() {
         }
     }, [currentUser, firestore]);
 
-  const canManage = (targetUser: UserProfile) => {
-    if (!currentUserRole || currentUser?.uid === targetUser.uid) return false;
-    if (currentUserRole === 'Lead-Manager') {
-        return targetUser.role !== 'Lead-Manager';
+ const canManage = (targetUser: UserProfile) => {
+    if (!currentUserRole || !targetUser.role || currentUser.uid === targetUser.uid) {
+        return false;
     }
-    if (currentUserRole === 'Sub-Manager' && targetUser.role === 'User') {
-        return true; 
-    }
-    return false;
+    const currentUserLevel = ROLE_HIERARCHY[currentUserRole];
+    const targetUserLevel = ROLE_HIERARCHY[targetUser.role];
+    
+    return currentUserLevel > targetUserLevel;
   };
+
+  const canChangeRoleTo = (targetRole: string) => {
+      if (!currentUserRole) return false;
+      const currentUserLevel = ROLE_HIERARCHY[currentUserRole];
+      const targetRoleLevel = ROLE_HIERARCHY[targetRole];
+      return currentUserLevel > targetRoleLevel;
+  }
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (!firestore) return;
@@ -350,7 +366,7 @@ function UserManagementTool() {
                     </div>
                   </TableCell>
                   <TableCell>
-                     <Badge variant={user.role.includes('Manager') ? 'secondary' : 'outline'}>
+                     <Badge variant={['Owner', 'Co-Owner', 'Lead-Manager'].includes(user.role) ? 'secondary' : 'outline'}>
                         {user.role}
                     </Badge>
                   </TableCell>
@@ -389,7 +405,7 @@ function UserManagementTool() {
                                 <DropdownMenuSubContent>
                                     <DropdownMenuRadioGroup value={user.role} onValueChange={(newRole) => handleRoleChange(user.uid, newRole)}>
                                         {ROLES.map(role => (
-                                             <DropdownMenuRadioItem key={role} value={role} disabled={(role === 'Lead-Manager' && currentUserRole !== 'Lead-Manager') || (role === 'Sub-Manager' && currentUserRole !== 'Lead-Manager')}>{role}</DropdownMenuRadioItem>
+                                             <DropdownMenuRadioItem key={role} value={role} disabled={!canChangeRoleTo(role)}>{role}</DropdownMenuRadioItem>
                                         ))}
                                     </DropdownMenuRadioGroup>
                                 </DropdownMenuSubContent>
@@ -873,7 +889,7 @@ export default function AdminDashboardPage() {
   }
 
 
-  if (!['Lead-Manager', 'Sub-Manager'].includes(userRole)) {
+  if (!['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole)) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
             <h1 className="text-2xl font-bold">Access Denied</h1>

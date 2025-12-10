@@ -14,7 +14,7 @@ service cloud.firestore {
 
     function isAuthenticatedUser() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['User', 'Sub-Manager', 'Lead-Manager'];
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['User', 'Sub-Manager', 'Lead-Manager', 'Co-Owner', 'Owner'];
     }
     
     function isManager() {
@@ -23,30 +23,38 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Lead-Manager', 'Sub-Manager'];
     }
     
-    function isLeadManager() {
+    function isCoOwner() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Lead-Manager';
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Co-Owner';
+    }
+
+    function isOwnerRole() {
+       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Owner';
     }
 
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create: if isOwner(userId);
-      // Allow users to update their own profile.
-      // Allow managers to update profiles of lower-level users.
+      // Hierarchical update logic
       allow update: if isOwner(userId) || 
-                    (isLeadManager() && getUserData(userId).role != 'Lead-Manager') ||
+                    (isOwnerRole()) ||
+                    (isCoOwner() && getUserData(userId).role != 'Owner') ||
+                    (isManager() && getUserData(request.auth.uid).role == 'Lead-Manager' && !(getUserData(userId).role in ['Owner', 'Co-Owner', 'Lead-Manager'])) ||
                     (isManager() && getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
       
-      // Allow managers to delete lower-level users.
-      allow delete: if (isLeadManager() && getUserData(userId).role != 'Lead-Manager') ||
+      // Hierarchical delete logic
+      allow delete: if (isOwnerRole() && userId != request.auth.uid) ||
+                       (isCoOwner() && !(getUserData(userId).role in ['Owner', 'Co-Owner'])) ||
+                       (isManager() && getUserData(request.auth.uid).role == 'Lead-Manager' && !(getUserData(userId).role in ['Owner', 'Co-Owner', 'Lead-Manager'])) ||
                        (isManager() && getUserData(request.auth.uid).role == 'Sub-Manager' && getUserData(userId).role == 'User');
     }
 
     match /user_lookups/{lookupId} {
       allow read: if true;
       allow create: if isOwner(request.resource.data.uid);
-      allow update: if isOwner(request.resource.data.uid) || isManager();
-      allow delete: if isManager();
+      allow update: if isOwner(request.resource.data.uid) || isManager() || isCoOwner() || isOwnerRole();
+      allow delete: if isManager() || isCoOwner() || isOwnerRole();
     }
 
     match /password_recovery/{userId} {

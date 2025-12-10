@@ -92,7 +92,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   const finalSecurityQuestion = securityQuestion === 'custom' ? customSecurityQuestion : securityQuestion;
   
-  const finalNavItems = userRole === 'Lead-Manager' || userRole === 'Sub-Manager' ? [...navItems, adminNavItem] : navItems;
+  const finalNavItems = userRole && ['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole) ? [...navItems, adminNavItem] : navItems;
   const isGoogleUser = user?.providerData.some(p => p.providerId === 'google.com');
 
 

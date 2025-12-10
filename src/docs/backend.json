@@ -29,8 +29,8 @@
                 },
                 "role": {
                     "type": "string",
-                    "description": "The user's role, e.g., User, Sub-Manager, Lead-Manager",
-                    "enum": ["User", "Sub-Manager", "Lead-Manager"]
+                    "description": "The user's role, e.g., User, Sub-Manager, Lead-Manager, Co-Owner, Owner",
+                    "enum": ["User", "Sub-Manager", "Lead-Manager", "Co-Owner", "Owner"]
                 },
                 "status": {
                     "type": "string",
@@ -290,3 +290,5 @@
         }
     }
 }
+
+    
