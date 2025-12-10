@@ -11,6 +11,11 @@ service cloud.firestore {
     function getUserData(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
+
+    function isAuthenticatedUser() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['User', 'Sub-Manager', 'Lead-Manager'];
+    }
     
     function isManager() {
       // Check if the user document exists and has a role before trying to access it.
@@ -67,7 +72,7 @@ service cloud.firestore {
     
     match /Sponsorships/{sponsorshipId} {
         allow read: if true;
-        allow write: if isManager();
+        allow write: if isAuthenticatedUser();
     }
   }
 }
