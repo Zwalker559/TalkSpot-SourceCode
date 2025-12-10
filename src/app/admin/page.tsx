@@ -273,7 +273,13 @@ function UserManagementTool() {
                 return;
             }
             await resetPassword({ uid: userToEdit.uid, newPassword: editNewPassword });
-            createLog('user.edit.password_reset', {});
+            await createAuditLog({
+                actorUid: currentUser.uid,
+                actorDisplayName: currentUser.displayName || 'Admin',
+                action: 'user.edit.password_reset',
+                targetInfo: { type: 'user', uid: userToEdit.uid, displayName: userToEdit.displayName },
+                details: {}
+            });
         }
         
         await batch.commit();
@@ -1287,3 +1293,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
