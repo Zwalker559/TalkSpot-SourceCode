@@ -132,6 +132,11 @@
                     "type": "number",
                     "description": "A number representing the chance of this promotion being displayed. Higher is more likely."
                 },
+                "imageFit": {
+                    "type": "string",
+                    "enum": ["cover", "contain"],
+                    "description": "How the ad image should be resized to fit its container. 'cover' will fill the space and crop, 'contain' will show the full image with possible letterboxing."
+                },
                 "createdAt": {
                     "$ref": "#/entities/timestamp",
                     "description": "Timestamp of when the promotion was created."

@@ -33,6 +33,7 @@ type Promotion = {
   status: 'active' | 'disabled';
   displayWeight: number;
   location: 'header' | 'sidebar' | 'both';
+  imageFit?: 'cover' | 'contain';
 };
 
 export default function SidebarPromotions() {
@@ -134,7 +135,7 @@ export default function SidebarPromotions() {
                         <Card className="overflow-hidden bg-muted/50">
                              <CardContent className="flex items-center justify-center p-0 aspect-square relative">
                                 {promo.type === 'image' ? (
-                                    <Image src={promo.content} alt={promo.title} fill style={{objectFit:"cover"}} className="rounded-md" />
+                                    <Image src={promo.content} alt={promo.title} fill style={{objectFit: promo.imageFit || 'cover'}} className="rounded-md" />
                                 ) : (
                                      <div className="text-center p-2 flex flex-col items-center justify-center gap-1">
                                         {promo.logoUrl && <Image src={promo.logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}

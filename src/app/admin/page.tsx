@@ -66,6 +66,7 @@ type Promotion = {
   status: 'active' | 'disabled';
   displayWeight: number;
   location: 'header' | 'sidebar' | 'both';
+  imageFit?: 'cover' | 'contain';
 };
 
 type AuditLog = {
@@ -546,6 +547,7 @@ function SponsorManagementTool() {
         status: 'active',
         location: 'both',
         displayWeight: 0,
+        imageFit: 'cover',
     };
 
     useEffect(() => {
@@ -614,6 +616,7 @@ function SponsorManagementTool() {
             location: 'both',
             status: 'active',
             displayWeight: 1,
+            imageFit: 'cover'
         });
         setEditDialogOpen(true);
     };
@@ -801,6 +804,16 @@ function SponsorManagementTool() {
                                              <Input type="file" ref={imageContentInputRef} onChange={(e) => handleImageUpload(e, 'content')} className="hidden" accept="image/png, image/jpeg, image/gif" />
                                         </CardContent>
                                     </Card>
+                                     <div className="space-y-2">
+                                        <Label htmlFor="promo-imageFit">Image Fit</Label>
+                                        <Select value={currentPromo.imageFit || 'cover'} onValueChange={(v) => handleDialogInputChange('imageFit', v)}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="cover">Cover (Fill container, may crop)</SelectItem>
+                                                <SelectItem value="contain">Contain (Show full image)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                             )}
 
@@ -871,7 +884,7 @@ function SponsorManagementTool() {
                                         <Card className="overflow-hidden bg-muted/50 mt-1">
                                             <CardContent className="flex items-center justify-center p-0 aspect-[16/2] relative">
                                                 {currentPromo.type === 'image' ? (
-                                                    currentPromo.content ? <Image src={currentPromo.content} alt="Header Preview" fill style={{ objectFit: "cover" }} /> : <div className="flex items-center text-muted-foreground"><ImageIcon className="mr-2"/>No Image</div>
+                                                    currentPromo.content ? <Image src={currentPromo.content} alt="Header Preview" fill style={{ objectFit: currentPromo.imageFit || 'cover' }} /> : <div className="flex items-center text-muted-foreground"><ImageIcon className="mr-2"/>No Image</div>
                                                 ) : (
                                                     <div className="text-center p-2 flex flex-col items-center justify-center gap-1">
                                                         {currentPromo.logoUrl && <Image src={currentPromo.logoUrl} alt="logo" width={24} height={24} className="rounded-sm object-contain" />}
@@ -888,7 +901,7 @@ function SponsorManagementTool() {
                                         <Card className="overflow-hidden bg-muted/50 mt-1 w-40 mx-auto">
                                             <CardContent className="flex items-center justify-center p-0 aspect-square relative">
                                                 {currentPromo.type === 'image' ? (
-                                                     currentPromo.content ? <Image src={currentPromo.content} alt="Sidebar Preview" fill style={{ objectFit: "cover" }} /> : <div className="flex items-center text-muted-foreground"><ImageIcon className="mr-2"/>No Image</div>
+                                                     currentPromo.content ? <Image src={currentPromo.content} alt="Sidebar Preview" fill style={{ objectFit: currentPromo.imageFit || 'cover' }} /> : <div className="flex items-center text-muted-foreground"><ImageIcon className="mr-2"/>No Image</div>
                                                 ) : (
                                                     <div className="text-center p-2 flex flex-col items-center justify-center gap-1">
                                                         {currentPromo.logoUrl && <Image src={currentPromo.logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}

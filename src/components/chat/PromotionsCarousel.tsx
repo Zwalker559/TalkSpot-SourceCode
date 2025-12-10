@@ -33,6 +33,7 @@ type Promotion = {
   status: 'active' | 'disabled';
   displayWeight: number;
   location: 'header' | 'sidebar' | 'both';
+  imageFit?: 'cover' | 'contain';
 };
 
 export default function PromotionsCarousel() {
@@ -138,7 +139,7 @@ export default function PromotionsCarousel() {
                         src={promo.content}
                         alt={promo.title}
                         fill
-                        style={{objectFit:"cover"}}
+                        style={{objectFit: promo.imageFit || 'cover'}}
                         className="rounded-md"
                       />
                     ) : (
