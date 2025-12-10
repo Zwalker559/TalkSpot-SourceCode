@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star } from 'lucide-react';
@@ -510,6 +511,7 @@ function SponsorManagementTool() {
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
     const [currentPromo, setCurrentPromo] = useState<Partial<Promotion> | null>(null);
+    const [isPreviewOpen, setPreviewOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fallbackPromo: Promotion = {
@@ -586,7 +588,7 @@ function SponsorManagementTool() {
             popupContent: '',
             location: 'both',
             status: 'active',
-            displayWeight: 1
+            displayWeight: 1,
         });
         setEditDialogOpen(true);
     };
@@ -692,69 +694,80 @@ function SponsorManagementTool() {
             </Card>
 
             <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
-                <DialogContent className="sm:max-w-4xl">
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{currentPromo?.id ? 'Edit Promotion' : 'Add New Promotion'}</DialogTitle>
                     </DialogHeader>
                     {currentPromo && (
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {/* Editor Column */}
-                            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="promo-title">Title</Label>
-                                    <Input id="promo-title" value={currentPromo.title} onChange={(e) => handleDialogInputChange('title', e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="promo-type">Type</Label>
-                                    <Select value={currentPromo.type} onValueChange={(v) => handleDialogInputChange('type', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent><SelectItem value="text">Text</SelectItem><SelectItem value="image">Image</SelectItem></SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="promo-content">{currentPromo.type === 'image' ? 'Image URL or Upload' : 'Text Content'}</Label>
-                                     <p className="text-xs text-muted-foreground">
-                                        You can paste a web URL or upload a file to convert it to Base64.
-                                    </p>
-                                    <Textarea id="promo-content" value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} />
-                                     {currentPromo.type === 'image' && (
-                                        <>
-                                            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                                                <Upload className="mr-2 h-4 w-4" /> Upload Image
-                                            </Button>
-                                            <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/png, image/jpeg, image/gif" />
-                                        </>
-                                     )}
-                                </div>
-                                {currentPromo.type === 'text' && (
+                        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="promo-title">Title</Label>
+                                <Input id="promo-title" value={currentPromo.title} onChange={(e) => handleDialogInputChange('title', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="promo-type">Type</Label>
+                                <Select value={currentPromo.type} onValueChange={(v) => handleDialogInputChange('type', v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectItem value="text">Text</SelectItem><SelectItem value="image">Image</SelectItem></SelectContent>
+                                </Select>
+                            </div>
+
+                            {currentPromo.type === 'text' ? (
+                                <>
                                     <div className="space-y-2">
-                                        <Label htmlFor="promo-logoUrl">Logo URL or Base64</Label>
+                                        <Label htmlFor="promo-content">Text Content</Label>
+                                        <Textarea id="promo-content" value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="promo-logoUrl">Logo URL (Optional, Base64 or web URL)</Label>
                                         <Input id="promo-logoUrl" value={currentPromo.logoUrl || ''} onChange={(e) => handleDialogInputChange('logoUrl', e.target.value)} />
                                     </div>
-                                )}
+                                </>
+                            ) : (
                                 <div className="space-y-2">
-                                    <Label htmlFor="promo-actionType">Action Type</Label>
-                                    <Select value={currentPromo.actionType} onValueChange={(v) => handleDialogInputChange('actionType', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="url">Open URL</SelectItem>
-                                            <SelectItem value="popup">Show Popup</SelectItem>
-                                            <SelectItem value="enlarge">Enlarge Image</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Label>Image</Label>
+                                    <Card>
+                                        <CardContent className="p-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="promo-content" className="text-sm text-muted-foreground">Image URL or Base64</Label>
+                                                 <Textarea id="promo-content" placeholder="https://... or data:image/..." value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} />
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                                                    <Upload className="mr-2 h-4 w-4" /> Upload Image
+                                                </Button>
+                                                <span className="text-xs text-muted-foreground">Or paste URL above.</span>
+                                            </div>
+                                             <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/png, image/jpeg, image/gif" />
+                                        </CardContent>
+                                    </Card>
                                 </div>
-                                {currentPromo.actionType === 'url' && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="promo-linkUrl">Link URL</Label>
-                                        <Input id="promo-linkUrl" value={currentPromo.linkUrl || ''} onChange={(e) => handleDialogInputChange('linkUrl', e.target.value)} />
-                                    </div>
-                                )}
-                                {currentPromo.actionType === 'popup' && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="promo-popupContent">Popup Content</Label>
-                                        <Textarea id="promo-popupContent" value={currentPromo.popupContent || ''} onChange={(e) => handleDialogInputChange('popupContent', e.target.value)} />
-                                    </div>
-                                )}
+                            )}
+
+                            <div className="space-y-2">
+                                <Label htmlFor="promo-actionType">Action Type</Label>
+                                <Select value={currentPromo.actionType} onValueChange={(v) => handleDialogInputChange('actionType', v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="url">Open URL</SelectItem>
+                                        <SelectItem value="popup">Show Popup</SelectItem>
+                                        <SelectItem value="enlarge">Enlarge Image</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {currentPromo.actionType === 'url' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="promo-linkUrl">Link URL</Label>
+                                    <Input id="promo-linkUrl" value={currentPromo.linkUrl || ''} onChange={(e) => handleDialogInputChange('linkUrl', e.target.value)} />
+                                </div>
+                            )}
+                            {currentPromo.actionType === 'popup' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="promo-popupContent">Popup Content</Label>
+                                    <Textarea id="promo-popupContent" value={currentPromo.popupContent || ''} onChange={(e) => handleDialogInputChange('popupContent', e.target.value)} />
+                                </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="promo-location">Location</Label>
                                     <Select value={currentPromo.location} onValueChange={(v) => handleDialogInputChange('location', v)}>
@@ -770,14 +783,23 @@ function SponsorManagementTool() {
                                     <Label htmlFor="promo-displayWeight">Display Weight</Label>
                                     <Input id="promo-displayWeight" type="number" value={currentPromo.displayWeight} onChange={(e) => handleDialogInputChange('displayWeight', e.target.valueAsNumber || 0)} />
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                    <Switch id="promo-status" checked={currentPromo.status === 'active'} onCheckedChange={(c) => handleDialogInputChange('status', c ? 'active' : 'disabled')} />
-                                    <Label htmlFor="promo-status">Status ({currentPromo.status})</Label>
-                                </div>
                             </div>
-                            {/* Preview Column */}
-                            <div className="space-y-4 py-4">
-                                <h3 className="font-medium text-lg flex items-center"><Eye className="mr-2" /> Live Preview</h3>
+                            <div className="flex items-center space-x-2 pt-2">
+                                <Switch id="promo-status" checked={currentPromo.status === 'active'} onCheckedChange={(c) => handleDialogInputChange('status', c ? 'active' : 'disabled')} />
+                                <Label htmlFor="promo-status">Status ({currentPromo.status})</Label>
+                            </div>
+                        </div>
+                     )}
+                    <DialogFooter className="sm:justify-between">
+                         <Dialog open={isPreviewOpen} onOpenChange={setPreviewOpen}>
+                            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+                                <Eye className="mr-2" /> Live Preview
+                            </Button>
+                             <DialogContent className="max-w-3xl">
+                                <DialogHeader>
+                                    <DialogTitle>Promotion Preview</DialogTitle>
+                                </DialogHeader>
+                                {currentPromo && (
                                 <div className="space-y-6 rounded-lg border p-4 bg-muted/30">
                                     {/* Header Preview */}
                                     <div>
@@ -814,12 +836,13 @@ function SponsorManagementTool() {
                                         </Card>
                                     </div>
                                 </div>
-                            </div>
+                                )}
+                            </DialogContent>
+                        </Dialog>
+                        <div className="flex gap-2">
+                             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                             <Button onClick={handleSave}>Save</Button>
                         </div>
-                     )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSave}>Save</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -886,3 +909,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
