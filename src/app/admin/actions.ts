@@ -16,7 +16,9 @@ const CreateAuditLogSchema = z.object({
   actorUid: z.string(),
   actorDisplayName: z.string(),
   action: z.enum([
+      'user.create',
       'user.edit.display_name',
+      'user.edit.display_name_self',
       'user.edit.texting_id',
       'user.edit.role',
       'user.edit.status.suspended',
@@ -59,6 +61,58 @@ export async function createAuditLog(input: CreateAuditLogInput) {
       throw new Error(`Invalid audit log input: ${error.message}`);
     }
     throw new Error('Failed to create audit log entry.');
+  }
+}
+
+/**
+ * Logs the creation of a new user.
+ */
+const UserCreationLogSchema = z.object({
+  uid: z.string(),
+  email: z.string().email(),
+  displayName: z.string(),
+  provider: z.string(),
+});
+export async function logUserCreation(input: z.infer<typeof UserCreationLogSchema>) {
+  try {
+    const { uid, email, displayName, provider } = UserCreationLogSchema.parse(input);
+    await createAuditLog({
+      actorUid: uid,
+      actorDisplayName: displayName,
+      action: 'user.create',
+      targetInfo: { type: 'user', uid: uid, displayName: displayName },
+      details: { email, provider }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error logging user creation:', error);
+    // Fail silently on the client, but log error on the server
+    return { success: false };
+  }
+}
+
+/**
+ * Logs a user changing their own display name.
+ */
+const DisplayNameChangeLogSchema = z.object({
+  uid: z.string(),
+  oldDisplayName: z.string(),
+  newDisplayName: z.string(),
+});
+export async function logDisplayNameChange(input: z.infer<typeof DisplayNameChangeLogSchema>) {
+   try {
+    const { uid, oldDisplayName, newDisplayName } = DisplayNameChangeLogSchema.parse(input);
+     await createAuditLog({
+        actorUid: uid,
+        actorDisplayName: newDisplayName, // Log with the new name
+        action: 'user.edit.display_name_self',
+        targetInfo: { type: 'user', uid: uid, displayName: newDisplayName },
+        details: { from: oldDisplayName, to: newDisplayName }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error logging display name change:', error);
+    return { success: false };
   }
 }
 

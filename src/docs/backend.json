@@ -242,7 +242,9 @@
                 "action": {
                     "type": "string",
                     "enum": [
+                        "user.create",
                         "user.edit.display_name",
+                        "user.edit.display_name_self",
                         "user.edit.texting_id",
                         "user.edit.role",
                         "user.edit.status.suspended",

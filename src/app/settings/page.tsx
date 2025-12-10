@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { useTranslation } from '@/hooks/use-translation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { logDisplayNameChange } from '@/app/admin/actions';
 
 const presetQuestions = [
   "What was your first pet's name?",
@@ -177,6 +178,7 @@ export default function SettingsPage() {
 
   const handleDisplayNameSave = async () => {
     if (!user || !firestore) return;
+    const oldDisplayName = user.displayName || '';
     try {
       const batch = writeBatch(firestore);
       
@@ -192,6 +194,12 @@ export default function SettingsPage() {
       batch.update(lookupDocRef, { displayName });
       
       await batch.commit();
+
+      await logDisplayNameChange({
+          uid: user.uid,
+          oldDisplayName,
+          newDisplayName: displayName,
+      });
 
       toast({ title: t('toasts.displayNameSuccessTitle'), description: t('toasts.displayNameSuccessDescription') });
       setDisplayNameDialogOpen(false);

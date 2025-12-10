@@ -49,6 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import PromotionsCarousel from '@/components/chat/PromotionsCarousel';
 import SidebarPromotions from '@/components/chat/SidebarPromotions';
+import { logDisplayNameChange } from '@/app/admin/actions';
 
 const navItems = [
   { href: '/dashboard', icon: MessageSquare, label: 'Chats' },
@@ -160,6 +161,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         return;
     }
     try {
+        const oldDisplayName = user.displayName || '';
         const batch = writeBatch(firestore);
         
         await updateProfile(user, { displayName: newDisplayName });
@@ -174,6 +176,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         batch.update(lookupDocRef, { displayName: newDisplayName });
 
         await batch.commit();
+
+        await logDisplayNameChange({
+            uid: user.uid,
+            oldDisplayName: oldDisplayName,
+            newDisplayName: newDisplayName,
+        });
 
         toast({ title: "Success", description: "Display name saved." });
         setDisplayNameModalOpen(false);

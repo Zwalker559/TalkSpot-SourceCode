@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { Logo } from '@/components/logo';
 import { useAuth, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { logUserCreation } from '@/app/admin/actions';
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -139,6 +140,14 @@ export default function LoginPage() {
         });
         
         await batch.commit();
+
+        // Log the creation event
+        await logUserCreation({
+            uid: user.uid,
+            email: user.email,
+            displayName: displayName,
+            provider: 'google.com',
+        });
       }
       
       const canLogin = await checkUserStatusAndRedirect(user.uid);

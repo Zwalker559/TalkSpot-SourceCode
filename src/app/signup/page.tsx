@@ -14,6 +14,7 @@ import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { Logo } from '@/components/logo';
+import { logUserCreation } from '@/app/admin/actions';
 
 function generateTextingId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -38,11 +39,11 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    if (!firestore) {
+    if (!firestore || !email) {
         toast({
             variant: "destructive",
             title: "Error",
-            description: "Database service not available.",
+            description: "Database service not available or email is missing.",
         });
         setIsLoading(false);
         return;
@@ -90,6 +91,14 @@ export default function SignupPage() {
       });
 
       await batch.commit();
+
+      // Log the creation event
+      await logUserCreation({
+          uid: user.uid,
+          email: user.email,
+          displayName: displayName,
+          provider: 'password',
+      });
 
       router.push('/dashboard');
     } catch (error: any) {
