@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/dialog';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
-import { FirestorePermissionError, errorEmitter } from '@/firebase';
 
 type Promotion = {
   id: string;
@@ -74,12 +73,10 @@ export default function SidebarPromotions() {
         }
 
         setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
-        }, (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: sponsorshipsColRef.path,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
+        }, (error) => {
+            console.error("Error listening to Sponsorships collection:", error);
+            // Do not throw a custom error here in a snapshot listener
+            // as it can cause uncaught exceptions in dev mode.
         });
         
     return () => unsubscribe();
