@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -93,7 +92,7 @@ export default function PromotionsCarousel() {
           {promotions.map((promo) => (
             <CarouselItem key={promo.id} onClick={(e) => handlePromoClick(e, promo)} className="cursor-pointer">
               <Card className="overflow-hidden bg-muted/50">
-                 <CardContent className="flex items-center justify-center p-0 aspect-[16/7] relative">
+                 <CardContent className="flex items-center justify-center p-0 aspect-[16/4] relative">
                     {promo.type === 'image' ? (
                        <Image
                         src={promo.content}
@@ -113,8 +112,8 @@ export default function PromotionsCarousel() {
                             className="rounded-sm object-contain"
                           />
                         )}
-                        <h3 className="font-bold text-xl">{promo.title}</h3>
-                        <p className="text-md text-foreground/90">{promo.content}</p>
+                        <h3 className="font-bold text-lg">{promo.title}</h3>
+                        <p className="text-sm text-foreground/90">{promo.content}</p>
                       </div>
                     )}
                  </CardContent>
