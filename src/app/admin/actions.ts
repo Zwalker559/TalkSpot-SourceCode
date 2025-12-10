@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
@@ -14,7 +15,19 @@ const db = getFirestore();
 const CreateAuditLogSchema = z.object({
   actorUid: z.string(),
   actorDisplayName: z.string(),
-  action: z.string(),
+  action: z.enum([
+      'user.edit.display_name',
+      'user.edit.texting_id',
+      'user.edit.role',
+      'user.edit.status.suspended',
+      'user.edit.status.activated',
+      'user.edit.password_reset',
+      'user.delete',
+      'promotion.create',
+      'promotion.edit',
+      'promotion.delete',
+      'audit.clear'
+  ]),
   targetInfo: z.object({
     type: z.string(),
     uid: z.string().optional(),

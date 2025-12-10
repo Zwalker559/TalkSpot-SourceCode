@@ -178,7 +178,7 @@ function UserManagementTool() {
       const targetRoleLevel = ROLE_HIERARCHY[targetRole];
 
       // Owner and Co-Owner can't be assigned from the UI
-      if (['Owner', 'Co-Owner'].includes(targetRole)) {
+      if (['Owner', 'Co-Owner'].includes(targetRole) && currentUserRole !== 'Owner') {
           return false;
       }
       
@@ -211,30 +211,39 @@ function UserManagementTool() {
 
         const updates: any = {};
         const lookupUpdates: any = {};
-        const auditDetails: Record<string, any> = {};
+        
+        const createLog = (action: string, details: Record<string, any>) => {
+             createAuditLog({
+                actorUid: currentUser.uid,
+                actorDisplayName: currentUser.displayName || 'Admin',
+                action,
+                targetInfo: { type: 'user', uid: userToEdit.uid, displayName: userToEdit.displayName },
+                details
+            });
+        }
 
         // Display Name
         if (editDisplayName !== userToEdit.displayName && editDisplayName.trim()) {
             updates.displayName = editDisplayName;
             lookupUpdates.displayName = editDisplayName;
-            auditDetails['displayName'] = { from: userToEdit.displayName, to: editDisplayName };
+            createLog('user.edit.display_name', { from: userToEdit.displayName, to: editDisplayName });
         }
 
         // Texting ID
         if (editTextingId !== userToEdit.textingId) {
             updates.textingId = editTextingId;
             lookupUpdates.textingId = editTextingId;
-             auditDetails['textingId'] = { from: userToEdit.textingId, to: editTextingId };
+            createLog('user.edit.texting_id', { from: userToEdit.textingId, to: editTextingId });
         }
 
         // Role
-        if (editRole !== userToEdit.role && currentUserRole !== 'Sub-Manager') {
+        if (editRole !== userToEdit.role && canEditRoles) {
             updates.role = editRole;
-            auditDetails['role'] = { from: userToEdit.role, to: editRole };
+            createLog('user.edit.role', { from: userToEdit.role, to: editRole });
         }
 
         // Status & Suspension Reason
-        if (editStatus !== userToEdit.status) {
+        if (editStatus !== (userToEdit.status || 'Active')) {
             updates.status = editStatus;
             if (editStatus === 'Suspended') {
                 if (!editSuspensionReason.trim()) {
@@ -242,10 +251,10 @@ function UserManagementTool() {
                     return;
                 }
                 updates.suspensionReason = editSuspensionReason;
-                auditDetails['status'] = { to: 'Suspended', reason: editSuspensionReason };
+                createLog('user.edit.status.suspended', { reason: editSuspensionReason });
             } else {
                 updates.suspensionReason = ''; // Clear reason on activation
-                auditDetails['status'] = { to: 'Active' };
+                createLog('user.edit.status.activated', {});
             }
         }
         
@@ -257,26 +266,16 @@ function UserManagementTool() {
         }
         
         // Password Reset
-        if (editNewPassword && (currentUserRole === 'Owner' || currentUserRole === 'Co-Owner')) {
+        if (editNewPassword && canEditPassword) {
              if (editNewPassword.length < 6) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
                 return;
             }
             await resetPassword({ uid: userToEdit.uid, newPassword: editNewPassword });
-             auditDetails['password'] = 'Reset';
+            createLog('user.edit.password_reset', {});
         }
         
         await batch.commit();
-
-        if (Object.keys(auditDetails).length > 0) {
-            await createAuditLog({
-                actorUid: currentUser.uid,
-                actorDisplayName: currentUser.displayName,
-                action: 'user.edit',
-                targetInfo: { type: 'user', uid: userToEdit.uid, displayName: userToEdit.displayName },
-                details: auditDetails
-            });
-        }
 
         toast({ title: 'Success', description: 'User details updated.' });
         setEditDialogOpen(false);
@@ -620,17 +619,17 @@ function SponsorManagementTool() {
 
     const handleSave = async () => {
         if (!firestore || !currentPromo || !currentUser || !currentUser.displayName) return;
-
+    
         try {
             const promoData = { ...currentPromo };
             const isNew = !promoData.id;
-            
+    
             if (isNew) {
                 const newDocRef = await addDoc(collection(firestore, 'Sponsorships'), {
                     ...promoData,
                     createdAt: serverTimestamp()
                 });
-                 await createAuditLog({
+                await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.create',
@@ -639,15 +638,19 @@ function SponsorManagementTool() {
                 });
                 toast({ title: "Promotion Added" });
             } else {
-                const docRef = doc(firestore, 'Sponsorships', promoData.id);
+                const docRef = doc(firestore, 'Sponsorships', promoData.id!);
+                const originalDoc = await getDoc(docRef);
+                const originalData = originalDoc.data();
+                
                 delete promoData.id;
                 await setDoc(docRef, promoData, { merge: true });
+                
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.edit',
-                    targetInfo: { type: 'promotion', uid: currentPromo.id, displayName: promoData.title },
-                    details: promoData
+                    targetInfo: { type: 'promotion', uid: originalDoc.id, displayName: promoData.title },
+                    details: { from: originalData, to: promoData }
                 });
                 toast({ title: "Promotion Updated" });
             }
