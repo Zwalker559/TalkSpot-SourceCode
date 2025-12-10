@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -17,7 +18,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import promotionsData from '@/lib/promotions.json';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { FirestorePermissionError, errorEmitter } from '@/firebase';
+
 
 type Promotion = {
   id: string;
@@ -38,16 +42,36 @@ export default function PromotionsCarousel() {
   const [api, setApi] = React.useState<CarouselApi>();
   const [popupData, setPopupData] = React.useState<{ title: string; content: string } | null>(null);
   const [enlargeImage, setEnlargeImage] = React.useState<{src: string, title: string} | null>(null);
+  const firestore = useFirestore();
 
   React.useEffect(() => {
-    const allActivePromos = (promotionsData.promotions as Promotion[]).filter(
-      (promo) => promo.status === 'active'
+    if (!firestore) return;
+
+    const sponsorshipsColRef = collection(firestore, 'Sponsorships');
+    const q = query(sponsorshipsColRef, where('status', '==', 'active'));
+
+    const unsubscribe = onSnapshot(q,
+      (snapshot) => {
+        const activePromos: Promotion[] = [];
+        snapshot.forEach(doc => {
+            const data = doc.data() as Omit<Promotion, 'id'>;
+            if (data.location === 'header' || data.location === 'both') {
+                activePromos.push({ id: doc.id, ...data });
+            }
+        });
+        setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
+      },
+      (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: sponsorshipsColRef.path,
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
     );
-    const headerPromos = allActivePromos.filter(
-      (promo) => promo.location === 'header' || promo.location === 'both'
-    );
-    setPromotions(headerPromos.sort((a, b) => b.displayWeight - a.displayWeight));
-  }, []);
+
+    return () => unsubscribe();
+  }, [firestore]);
 
   const handlePromoClick = (e: React.MouseEvent, promo: Promotion) => {
     const target = e.currentTarget as HTMLElement;
@@ -143,3 +167,5 @@ export default function PromotionsCarousel() {
     </>
   );
 }
+
+    

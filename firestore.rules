@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -62,5 +63,12 @@ service cloud.firestore {
        allow read, delete: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
        allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
+    
+    match /Sponsorships/{sponsorshipId} {
+        allow read: if true;
+        allow write: if isManager();
+    }
   }
 }
+
+    

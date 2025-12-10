@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -17,7 +18,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import promotionsData from '@/lib/promotions.json';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { FirestorePermissionError, errorEmitter } from '@/firebase';
 
 type Promotion = {
   id: string;
@@ -38,16 +41,34 @@ export default function SidebarPromotions() {
   const [api, setApi] = React.useState<CarouselApi>();
   const [popupData, setPopupData] = React.useState<{ title: string; content: string } | null>(null);
   const [enlargeImage, setEnlargeImage] = React.useState<{src: string, title: string} | null>(null);
+  const firestore = useFirestore();
 
   React.useEffect(() => {
-    const allActivePromos = (promotionsData.promotions as Promotion[]).filter(
-      (promo) => promo.status === 'active'
-    );
-    const sidebarPromos = allActivePromos.filter(
-      (promo) => promo.location === 'sidebar' || promo.location === 'both'
-    );
-    setPromotions(sidebarPromos.sort((a, b) => b.displayWeight - a.displayWeight));
-  }, []);
+    if (!firestore) return;
+
+    const sponsorshipsColRef = collection(firestore, 'Sponsorships');
+    const q = query(sponsorshipsColRef, where('status', '==', 'active'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const activePromos: Promotion[] = [];
+        snapshot.forEach(doc => {
+            const data = doc.data() as Omit<Promotion, 'id'>;
+            if (data.location === 'sidebar' || data.location === 'both') {
+                activePromos.push({ id: doc.id, ...data });
+            }
+        });
+        setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
+        }, (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: sponsorshipsColRef.path,
+                operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
+        
+    return () => unsubscribe();
+  }, [firestore]);
+
 
   const handlePromoClick = (e: React.MouseEvent, promo: Promotion) => {
     const target = e.currentTarget as HTMLElement;
@@ -134,3 +155,5 @@ export default function SidebarPromotions() {
     </>
   );
 }
+
+    

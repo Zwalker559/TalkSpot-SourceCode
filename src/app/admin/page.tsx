@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2 } from 'lucide-react';
@@ -35,7 +36,7 @@ import {
 } from '@/components/ui/table';
 import { useEffect, useState } from 'react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -45,8 +46,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
 import { resetPassword } from '@/ai/flows/reset-password-flow';
-import promotionsData from '@/lib/promotions.json';
-import { updatePromotions } from './actions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 
 type UserProfile = {
@@ -58,6 +59,21 @@ type UserProfile = {
   status?: 'Active' | 'Suspended';
   textingId: string;
 };
+
+type Promotion = {
+  id: string;
+  title: string;
+  type: 'text' | 'image';
+  content: string;
+  logoUrl?: string;
+  actionType: 'url' | 'popup' | 'enlarge';
+  linkUrl?: string;
+  popupContent?: string;
+  status: 'active' | 'disabled';
+  displayWeight: number;
+  location: 'header' | 'sidebar' | 'both';
+};
+
 
 const ROLES = ['User', 'Sub-Manager', 'Lead-Manager'];
 
@@ -489,54 +505,209 @@ function UserManagementTool() {
 }
 
 function SponsorManagementTool() {
+    const firestore = useFirestore();
     const { toast } = useToast();
-    const [jsonContent, setJsonContent] = useState(JSON.stringify(promotionsData, null, 2));
-    const [isSaving, setIsSaving] = useState(false);
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [isEditDialogOpen, setEditDialogOpen] = useState(false);
+    const [currentPromo, setCurrentPromo] = useState<Partial<Promotion> | null>(null);
 
-    const handleSave = async () => {
-      setIsSaving(true);
-      const result = await updatePromotions(jsonContent);
-      if (result.success) {
-        toast({
-          title: "Promotions Saved",
-          description: "The promotions file has been updated. The app will reload to apply changes.",
+    useEffect(() => {
+        if (!firestore) return;
+        const promoColRef = collection(firestore, 'Sponsorships');
+        const unsubscribe = onSnapshot(promoColRef, (snapshot) => {
+            const promoList: Promotion[] = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as Promotion));
+            setPromotions(promoList.sort((a,b) => b.displayWeight - a.displayWeight));
         });
-        // The server action will trigger a hot reload in development.
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error Saving Promotions",
-          description: result.message,
-        });
-      }
-      setIsSaving(false);
+        return () => unsubscribe();
+    }, [firestore]);
+
+    const handleEdit = (promo: Promotion) => {
+        setCurrentPromo(promo);
+        setEditDialogOpen(true);
     };
 
+    const handleAddNew = () => {
+        setCurrentPromo({
+            title: '',
+            type: 'text',
+            content: '',
+            actionType: 'url',
+            location: 'both',
+            status: 'active',
+            displayWeight: 1
+        });
+        setEditDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!firestore || !currentPromo) return;
+
+        try {
+            const promoData = { ...currentPromo };
+            if (promoData.id) {
+                const docRef = doc(firestore, 'Sponsorships', promoData.id);
+                delete promoData.id;
+                await setDoc(docRef, promoData, { merge: true });
+                toast({ title: "Promotion Updated" });
+            } else {
+                await addDoc(collection(firestore, 'Sponsorships'), {
+                    ...promoData,
+                    createdAt: serverTimestamp()
+                });
+                toast({ title: "Promotion Added" });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error Saving Promotion', description: error.message });
+        } finally {
+            setEditDialogOpen(false);
+            setCurrentPromo(null);
+        }
+    };
+    
+    const handleDelete = async (promoId: string) => {
+        if (!firestore) return;
+        try {
+            await deleteDoc(doc(firestore, 'Sponsorships', promoId));
+            toast({ title: 'Promotion Deleted' });
+        } catch (error: any) {
+             toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
+        }
+    };
+
+    const handleDialogInputChange = (field: keyof Promotion, value: any) => {
+        if (currentPromo) {
+             setCurrentPromo({ ...currentPromo, [field]: value });
+        }
+    }
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Sponsors & Promotions</CardTitle>
-                <CardDescription>
-                    Manage advertisements by editing the promotions JSON directly. After saving, the app will reload to show your changes.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="promotions-json">promotions.json</Label>
-                   <Textarea
-                        id="promotions-json"
-                        value={jsonContent}
-                        onChange={(e) => setJsonContent(e.target.value)}
-                        className="h-96 font-mono text-xs"
-                        placeholder="Enter valid JSON for promotions..."
-                    />
-                </div>
-                <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? "Saving..." : "Save Promotions"}
-                </Button>
-            </CardContent>
-        </Card>
-    )
+        <>
+            <Card>
+                <CardHeader className='flex-row items-center justify-between'>
+                    <div>
+                        <CardTitle>Sponsors & Promotions</CardTitle>
+                        <CardDescription>
+                            Manage advertisements displayed in the app.
+                        </CardDescription>
+                    </div>
+                    <Button onClick={handleAddNew}>
+                        <PlusCircle className='mr-2' /> Add New
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Location</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {promotions.map((promo) => (
+                                <TableRow key={promo.id}>
+                                    <TableCell className='font-medium'>{promo.title}</TableCell>
+                                    <TableCell><Badge variant="outline">{promo.type}</Badge></TableCell>
+                                    <TableCell><Badge variant="outline">{promo.location}</Badge></TableCell>
+                                    <TableCell><Badge variant={promo.status === 'active' ? 'default' : 'secondary'}>{promo.status}</Badge></TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(promo)}><Edit className="h-4 w-4" /></Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(promo.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>{currentPromo?.id ? 'Edit Promotion' : 'Add New Promotion'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                        {currentPromo && (
+                           <>
+                             <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-title" className="text-right">Title</Label>
+                                <Input id="promo-title" value={currentPromo.title} onChange={(e) => handleDialogInputChange('title', e.target.value)} className="col-span-3" />
+                             </div>
+                             <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-type" className="text-right">Type</Label>
+                                <Select value={currentPromo.type} onValueChange={(v) => handleDialogInputChange('type', v)}>
+                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectItem value="text">Text</SelectItem><SelectItem value="image">Image</SelectItem></SelectContent>
+                                </Select>
+                             </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-content" className="text-right">{currentPromo.type === 'image' ? 'Image URL' : 'Text Content'}</Label>
+                                <Textarea id="promo-content" value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} className="col-span-3" />
+                             </div>
+                              {currentPromo.type === 'text' && (
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="promo-logoUrl" className="text-right">Logo URL</Label>
+                                    <Input id="promo-logoUrl" value={currentPromo.logoUrl || ''} onChange={(e) => handleDialogInputChange('logoUrl', e.target.value)} className="col-span-3" />
+                                </div>
+                              )}
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-actionType" className="text-right">Action Type</Label>
+                                <Select value={currentPromo.actionType} onValueChange={(v) => handleDialogInputChange('actionType', v)}>
+                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="url">Open URL</SelectItem>
+                                        <SelectItem value="popup">Show Popup</SelectItem>
+                                        <SelectItem value="enlarge">Enlarge Image</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                             </div>
+                             {currentPromo.actionType === 'url' && (
+                                 <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="promo-linkUrl" className="text-right">Link URL</Label>
+                                    <Input id="promo-linkUrl" value={currentPromo.linkUrl || ''} onChange={(e) => handleDialogInputChange('linkUrl', e.target.value)} className="col-span-3" />
+                                 </div>
+                             )}
+                             {currentPromo.actionType === 'popup' && (
+                                 <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="promo-popupContent" className="text-right">Popup Content</Label>
+                                    <Textarea id="promo-popupContent" value={currentPromo.popupContent || ''} onChange={(e) => handleDialogInputChange('popupContent', e.target.value)} className="col-span-3" />
+                                 </div>
+                             )}
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-location" className="text-right">Location</Label>
+                                <Select value={currentPromo.location} onValueChange={(v) => handleDialogInputChange('location', v)}>
+                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="header">Header</SelectItem>
+                                        <SelectItem value="sidebar">Sidebar</SelectItem>
+                                        <SelectItem value="both">Both</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                             </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-displayWeight" className="text-right">Display Weight</Label>
+                                <Input id="promo-displayWeight" type="number" value={currentPromo.displayWeight} onChange={(e) => handleDialogInputChange('displayWeight', Number(e.target.value))} className="col-span-3" />
+                             </div>
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="promo-status" className="text-right">Status</Label>
+                                <Switch id="promo-status" checked={currentPromo.status === 'active'} onCheckedChange={(c) => handleDialogInputChange('status', c ? 'active' : 'disabled')} />
+                             </div>
+                           </>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSave}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
 }
 
 export default function AdminDashboardPage() {
@@ -598,3 +769,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
