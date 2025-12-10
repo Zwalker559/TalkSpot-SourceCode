@@ -552,7 +552,10 @@ function SponsorManagementTool() {
             title: '',
             type: 'text',
             content: '',
+            logoUrl: '',
             actionType: 'url',
+            linkUrl: '',
+            popupContent: '',
             location: 'both',
             status: 'active',
             displayWeight: 1
