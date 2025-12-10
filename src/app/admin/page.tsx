@@ -669,6 +669,9 @@ function SponsorManagementTool() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="promo-content">{currentPromo.type === 'image' ? 'Image URL or Base64' : 'Text Content'}</Label>
+                                     <p className="text-xs text-muted-foreground">
+                                        You can paste a web URL or upload a file to convert it to Base64.
+                                    </p>
                                     <Textarea id="promo-content" value={currentPromo.content} onChange={(e) => handleDialogInputChange('content', e.target.value)} />
                                      {currentPromo.type === 'image' && (
                                         <>
