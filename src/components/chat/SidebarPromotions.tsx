@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import Autoplay from 'embla-carousel-autoplay';
 import {
@@ -34,12 +34,12 @@ type Promotion = {
 };
 
 export default function SidebarPromotions() {
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [api, setApi] = useState<CarouselApi>();
-  const [popupData, setPopupData] = useState<{ title: string; content: string } | null>(null);
-  const [enlargeImage, setEnlargeImage] = useState<string | null>(null);
+  const [promotions, setPromotions] = React.useState<Promotion[]>([]);
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [popupData, setPopupData] = React.useState<{ title: string; content: string } | null>(null);
+  const [enlargeImage, setEnlargeImage] = React.useState<{src: string, title: string} | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const allActivePromos = (promotionsData.promotions as Promotion[]).filter(
       (promo) => promo.status === 'active'
     );
@@ -69,7 +69,7 @@ export default function SidebarPromotions() {
           setPopupData({ title: promo.title, content: promo.popupContent || '' });
           break;
         case 'enlarge':
-          if (promo.type === 'image') setEnlargeImage(promo.content);
+          if (promo.type === 'image') setEnlargeImage({src: promo.content, title: promo.title});
           break;
         default:
           break;
@@ -99,7 +99,7 @@ export default function SidebarPromotions() {
                         <Card className="overflow-hidden bg-muted/50">
                              <CardContent className="flex items-center justify-center p-0 aspect-square relative">
                                 {promo.type === 'image' ? (
-                                    <Image src={promo.content} alt={promo.title} layout="fill" objectFit="cover" className="rounded-md" />
+                                    <Image src={promo.content} alt={promo.title} fill style={{objectFit:"cover"}} className="rounded-md" />
                                 ) : (
                                      <div className="text-center p-2 flex flex-col items-center justify-center gap-1">
                                         {promo.logoUrl && <Image src={promo.logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}
@@ -125,7 +125,10 @@ export default function SidebarPromotions() {
         
         <Dialog open={!!enlargeImage} onOpenChange={() => setEnlargeImage(null)}>
             <DialogContent className="max-w-3xl">
-                {enlargeImage && <Image src={enlargeImage} alt="Enlarged promotion" width={1200} height={675} className="rounded-md object-contain"/>}
+                 <DialogHeader>
+                    <DialogTitle>{enlargeImage?.title}</DialogTitle>
+                </DialogHeader>
+                {enlargeImage && <Image src={enlargeImage.src} alt="Enlarged promotion" width={1200} height={675} className="rounded-md object-contain"/>}
             </DialogContent>
         </Dialog>
     </>

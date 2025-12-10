@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import Autoplay from 'embla-carousel-autoplay';
 import {
@@ -34,12 +34,12 @@ type Promotion = {
 };
 
 export default function PromotionsCarousel() {
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [api, setApi] = useState<CarouselApi>();
-  const [popupData, setPopupData] = useState<{ title: string; content: string } | null>(null);
-  const [enlargeImage, setEnlargeImage] = useState<string | null>(null);
+  const [promotions, setPromotions] = React.useState<Promotion[]>([]);
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [popupData, setPopupData] = React.useState<{ title: string; content: string } | null>(null);
+  const [enlargeImage, setEnlargeImage] = React.useState<{src: string, title: string} | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const allActivePromos = (promotionsData.promotions as Promotion[]).filter(
       (promo) => promo.status === 'active'
     );
@@ -69,7 +69,7 @@ export default function PromotionsCarousel() {
           setPopupData({ title: promo.title, content: promo.popupContent || '' });
           break;
         case 'enlarge':
-           if (promo.type === 'image') setEnlargeImage(promo.content);
+           if (promo.type === 'image') setEnlargeImage({src: promo.content, title: promo.title});
           break;
         default:
           break;
@@ -97,8 +97,8 @@ export default function PromotionsCarousel() {
                        <Image
                         src={promo.content}
                         alt={promo.title}
-                        layout="fill"
-                        objectFit="cover"
+                        fill
+                        style={{objectFit:"cover"}}
                         className="rounded-md"
                       />
                     ) : (
@@ -134,7 +134,10 @@ export default function PromotionsCarousel() {
       
       <Dialog open={!!enlargeImage} onOpenChange={() => setEnlargeImage(null)}>
         <DialogContent className="max-w-3xl">
-          {enlargeImage && <Image src={enlargeImage} alt="Enlarged promotion" width={1200} height={675} className="rounded-md object-contain"/>}
+           <DialogHeader>
+            <DialogTitle>{enlargeImage?.title}</DialogTitle>
+          </DialogHeader>
+          {enlargeImage && <Image src={enlargeImage.src} alt="Enlarged promotion" width={1200} height={675} className="rounded-md object-contain"/>}
         </DialogContent>
       </Dialog>
     </>
