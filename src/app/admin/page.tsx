@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History } from 'lucide-react';
@@ -39,6 +40,7 @@ import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { createAuditLog, clearAuditLogs } from './actions';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type UserProfile = {
