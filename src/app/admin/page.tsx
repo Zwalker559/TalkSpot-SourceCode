@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History } from 'lucide-react';
@@ -213,7 +214,7 @@ function UserManagementTool() {
         const updates: any = {};
         const lookupUpdates: any = {};
         
-        const createLog = (action: string, details: Record<string, any>) => {
+        const createLog = (action: any, details: Record<string, any>) => {
              createAuditLog({
                 actorUid: currentUser.uid,
                 actorDisplayName: currentUser.displayName || 'Admin',
@@ -625,35 +626,49 @@ function SponsorManagementTool() {
         if (!firestore || !currentPromo || !currentUser || !currentUser.displayName) return;
     
         try {
-            const promoData = { ...currentPromo };
-            const isNew = !promoData.id;
+            const isNew = !currentPromo.id;
+            
+            // Create a serializable plain object for logging and saving
+            const promoDataToSave = {
+                title: currentPromo.title || '',
+                type: currentPromo.type || 'text',
+                content: currentPromo.content || '',
+                logoUrl: currentPromo.logoUrl || '',
+                actionType: currentPromo.actionType || 'none',
+                linkUrl: currentPromo.linkUrl || '',
+                popupContent: currentPromo.popupContent || '',
+                status: currentPromo.status || 'disabled',
+                displayWeight: currentPromo.displayWeight || 0,
+                location: currentPromo.location || 'both',
+                imageFit: currentPromo.imageFit || 'cover',
+            };
     
             if (isNew) {
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.create',
-                    details: promoData
+                    details: promoDataToSave
                 });
-                const newDocRef = await addDoc(collection(firestore, 'Sponsorships'), {
-                    ...promoData,
+                await addDoc(collection(firestore, 'Sponsorships'), {
+                    ...promoDataToSave,
                     createdAt: serverTimestamp()
                 });
                 toast({ title: "Promotion Added" });
             } else {
-                const docRef = doc(firestore, 'Sponsorships', promoData.id!);
-                const originalDoc = await getDoc(docRef);
-                
+                const docRef = doc(firestore, 'Sponsorships', currentPromo.id!);
+                const originalDocSnap = await getDoc(docRef);
+                const originalData = originalDocSnap.data();
+
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.edit',
-                    targetInfo: { type: 'promotion', uid: originalDoc.id, displayName: promoData.title },
-                    details: { from: originalDoc.data(), to: promoData }
+                    targetInfo: { type: 'promotion', uid: currentPromo.id, displayName: currentPromo.title },
+                    details: { from: originalData, to: promoDataToSave }
                 });
                 
-                delete promoData.id;
-                await setDoc(docRef, promoData, { merge: true });
+                await setDoc(docRef, promoDataToSave, { merge: true });
                 
                 toast({ title: "Promotion Updated" });
             }
@@ -666,21 +681,21 @@ function SponsorManagementTool() {
     };
     
     const handleDelete = async (promoId: string, promoTitle: string) => {
-        if (!firestore || !currentUser || !currentUser.displayName) return;
-        
-        await createAuditLog({
-            actorUid: currentUser.uid,
-            actorDisplayName: currentUser.displayName,
-            action: 'promotion.delete',
-            targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle }
-        });
+      if (!firestore || !currentUser || !currentUser.displayName) return;
+    
+      await createAuditLog({
+        actorUid: currentUser.uid,
+        actorDisplayName: currentUser.displayName,
+        action: 'promotion.delete',
+        targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle },
+      });
 
-        try {
-            await deleteDoc(doc(firestore, 'Sponsorships', promoId));
-            toast({ title: 'Promotion Deleted' });
-        } catch (error: any) {
-             toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
-        }
+      try {
+        await deleteDoc(doc(firestore, 'Sponsorships', promoId));
+        toast({ title: 'Promotion Deleted' });
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
+      }
     };
 
     const handleDialogInputChange = (field: keyof Promotion, value: any) => {
