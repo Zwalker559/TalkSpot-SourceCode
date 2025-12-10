@@ -159,3 +159,64 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
         throw new Error('An unexpected error occurred while clearing logs.');
     }
 }
+
+
+const DeleteUserFullySchema = z.object({
+  uidToDelete: z.string(),
+});
+/**
+ * Fully deletes a user from Firebase Authentication and all related Firestore data.
+ * This is a highly destructive server-side action.
+ */
+export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchema>) {
+    const { uidToDelete } = DeleteUserFullySchema.parse(input);
+    const batch = db.batch();
+
+    try {
+        // 1. Delete user from Firebase Authentication
+        await admin.auth().deleteUser(uidToDelete);
+
+        // 2. Delete user's main document
+        const userDocRef = db.collection('users').doc(uidToDelete);
+        batch.delete(userDocRef);
+
+        // 3. Delete user's lookup document
+        const userLookupDocRef = db.collection('user_lookups').doc(uidToDelete);
+        batch.delete(userLookupDocRef);
+        
+        // 4. Delete user's password recovery document
+        const passwordRecoveryDocRef = db.collection('password_recovery').doc(uidToDelete);
+        batch.delete(passwordRecoveryDocRef);
+
+        // 5. Find and delete all conversations the user is a part of
+        const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
+        const conversationsSnapshot = await conversationsQuery.get();
+
+        const deletePromises: Promise<any>[] = [];
+        conversationsSnapshot.forEach(convoDoc => {
+            // Delete all messages in the conversation's subcollection
+            const messagesRef = convoDoc.ref.collection('messages');
+            deletePromises.push(
+                db.recursiveDelete(messagesRef).then(() => {
+                    // After messages are gone, delete the conversation doc itself
+                    batch.delete(convoDoc.ref);
+                })
+            );
+        });
+
+        // Wait for all subcollection deletions to be planned
+        await Promise.all(deletePromises);
+        
+        // Commit all batched writes
+        await batch.commit();
+
+        revalidatePath('/admin');
+        return { success: true, message: 'User has been fully deleted.' };
+
+    } catch (error: any) {
+        console.error(`Critical error during full deletion of user ${uidToDelete}:`, error);
+        // If Auth deletion fails, the rest won't run, which is good.
+        // If Firestore deletion fails, the user is in a partial state.
+        throw new Error(`Failed to fully delete user: ${error.message}`);
+    }
+}

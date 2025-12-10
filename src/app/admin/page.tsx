@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History } from 'lucide-react';
@@ -40,7 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 import { format, subDays } from 'date-fns';
-import { createAuditLog, clearAuditLogs } from './actions';
+import { createAuditLog, clearAuditLogs, deleteUserFully } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -289,28 +288,22 @@ function UserManagementTool() {
   };
 
   const confirmRemoveUser = async () => {
-     if (!firestore || !userToRemove || !currentUser || !currentUser.displayName) return;
-
+    if (!firestore || !userToRemove || !currentUser || !currentUser.displayName) return;
+  
+    // Log the deletion attempt *before* starting the process
     await createAuditLog({
         actorUid: currentUser.uid,
         actorDisplayName: currentUser.displayName,
         action: 'user.delete',
         targetInfo: { type: 'user', uid: userToRemove.uid, displayName: userToRemove.displayName }
     });
-
-    const batch = writeBatch(firestore);
-    const userDocRef = doc(firestore, 'users', userToRemove.uid);
-    const lookupDocRef = doc(firestore, 'user_lookups', userToRemove.uid);
-    
-    batch.delete(userDocRef);
-    batch.delete(lookupDocRef);
-    
+  
     try {
-        await batch.commit();
-        toast({ title: 'User Removed', description: `${userToRemove.displayName} has been removed.` });
-    } catch (serverError) {
+        await deleteUserFully({ uidToDelete: userToRemove.uid });
+        toast({ title: 'User Fully Deleted', description: `${userToRemove.displayName} has been removed from Auth and Firestore.` });
+    } catch (serverError: any) {
         console.error("Error removing user:", serverError)
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove user.' });
+        toast({ variant: 'destructive', title: 'Error', description: `Could not fully remove user: ${serverError.message}` });
     } finally {
         setRemoveDialogOpen(false);
         setUserToRemove(null);
@@ -407,13 +400,13 @@ function UserManagementTool() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Permanently Remove User?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action is irreversible. It will delete the user's profile from Firestore. To fully remove the user from authentication, a server-side function is required. Are you sure you want to proceed?
+                    This action is irreversible. It will permanently delete the user from Authentication and all associated data in Firestore (profile, conversations, etc.). Are you sure?
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={confirmRemoveUser} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
-                    Remove User
+                    Yes, Delete User
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -681,22 +674,22 @@ function SponsorManagementTool() {
     };
     
     const handleDelete = async (promoId: string, promoTitle: string) => {
-      if (!firestore || !currentUser || !currentUser.displayName) return;
-    
-      await createAuditLog({
-        actorUid: currentUser.uid,
-        actorDisplayName: currentUser.displayName,
-        action: 'promotion.delete',
-        targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle },
-      });
-
-      try {
-        await deleteDoc(doc(firestore, 'Sponsorships', promoId));
-        toast({ title: 'Promotion Deleted' });
-      } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
-      }
-    };
+        if (!firestore || !currentUser || !currentUser.displayName) return;
+      
+        await createAuditLog({
+          actorUid: currentUser.uid,
+          actorDisplayName: currentUser.displayName,
+          action: 'promotion.delete',
+          targetInfo: { type: 'promotion', uid: promoId, displayName: promoTitle },
+        });
+      
+        try {
+          await deleteDoc(doc(firestore, 'Sponsorships', promoId));
+          toast({ title: 'Promotion Deleted' });
+        } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
+        }
+      };
 
     const handleDialogInputChange = (field: keyof Promotion, value: any) => {
         if (currentPromo) {
