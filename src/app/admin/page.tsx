@@ -266,29 +266,31 @@ function UserManagementTool() {
             batch.update(lookupDocRef, lookupUpdates);
         }
         
-        // Password Reset
+        await batch.commit();
+
+        // Password Reset - done after batch commit
         if (editNewPassword && canEditPassword) {
              if (editNewPassword.length < 6) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
                 return;
             }
             await resetPassword({ uid: userToEdit.uid, newPassword: editNewPassword });
+            // Log this action separately as it's a critical, distinct event.
             await createAuditLog({
                 actorUid: currentUser.uid,
-                actorDisplayName: currentUser.displayName || 'Admin',
+                actorDisplayName: currentUser.displayName,
                 action: 'user.edit.password_reset',
-                targetInfo: { type: 'user', uid: userToEdit.uid, displayName: userToEdit.displayName },
-                details: {}
+                targetInfo: { type: 'user', uid: userToEdit.uid, displayName: editDisplayName || userToEdit.displayName },
+                details: {} // No need to pass sensitive info here
             });
         }
         
-        await batch.commit();
-
         toast({ title: 'Success', description: 'User details updated.' });
         setEditDialogOpen(false);
         setUserToEdit(null);
 
     } catch (error: any) {
+        console.error("Failed to save user changes:", error);
         toast({ variant: 'destructive', title: 'Error', description: `Failed to update: ${error.message}` });
     }
   };
@@ -659,12 +661,15 @@ function SponsorManagementTool() {
                 const originalDocSnap = await getDoc(docRef);
                 const originalData = originalDocSnap.data();
 
+                // Ensure originalData is serializable before passing to server action
+                const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData)) : {};
+
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.edit',
                     targetInfo: { type: 'promotion', uid: currentPromo.id, displayName: currentPromo.title },
-                    details: { from: originalData, to: promoDataToSave }
+                    details: { from: serializableOriginalData, to: promoDataToSave }
                 });
                 
                 await setDoc(docRef, promoDataToSave, { merge: true });
@@ -672,6 +677,7 @@ function SponsorManagementTool() {
                 toast({ title: "Promotion Updated" });
             }
         } catch (error: any) {
+            console.error("Error saving promotion:", error);
             toast({ variant: 'destructive', title: 'Error Saving Promotion', description: error.message });
         } finally {
             setEditDialogOpen(false);
@@ -1293,5 +1299,6 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
 
     
