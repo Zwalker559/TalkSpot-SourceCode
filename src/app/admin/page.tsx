@@ -629,7 +629,6 @@ function SponsorManagementTool() {
         try {
             const isNew = !currentPromo.id;
             
-            // Create a serializable plain object for logging and saving
             const promoDataToSave = {
                 title: currentPromo.title || '',
                 type: currentPromo.type || 'text',
@@ -661,7 +660,6 @@ function SponsorManagementTool() {
                 const originalDocSnap = await getDoc(docRef);
                 const originalData = originalDocSnap.data();
 
-                // Ensure originalData is serializable before passing to server action
                 const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData)) : {};
 
                 await createAuditLog({
@@ -1299,6 +1297,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-
-    
