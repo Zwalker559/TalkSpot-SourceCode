@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -34,6 +32,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { TranslatedMessage } from './translated-message';
+
 
 // Types
 type ParticipantDetails = {
@@ -65,6 +65,11 @@ type Message = {
 type ChatFilters = {
     blockLinks?: boolean;
     blockProfanity?: boolean;
+}
+
+type PersonalizationSettings = {
+    theme?: string;
+    language?: string;
 }
 
 const profanityList = [
@@ -122,7 +127,7 @@ function ChatEmptyState() {
     )
 }
 
-function MessageBubble({ message, isOwnMessage, onMessageDelete, chatFilters }: { message: Message; isOwnMessage: boolean; onMessageDelete: (messageId: string) => void; chatFilters: ChatFilters }) {
+function MessageBubble({ message, isOwnMessage, onMessageDelete, chatFilters, language }: { message: Message; isOwnMessage: boolean; onMessageDelete: (messageId: string) => void; chatFilters: ChatFilters, language?: string; }) {
   const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   return (
@@ -139,7 +144,12 @@ function MessageBubble({ message, isOwnMessage, onMessageDelete, chatFilters }: 
             isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-muted'
           }`}
         >
-          <FilteredMessage text={message.text} filters={chatFilters} isOwnMessage={isOwnMessage} />
+          <TranslatedMessage
+              text={message.text}
+              filters={chatFilters}
+              isOwnMessage={isOwnMessage}
+              language={language}
+          />
 
            {isOwnMessage && (
             <DropdownMenu>
@@ -189,6 +199,7 @@ export default function ChatClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeletingConvo, setDeletingConvo] = useState(false);
   const [chatFilters, setChatFilters] = useState<ChatFilters>({});
+  const [personalization, setPersonalization] = useState<PersonalizationSettings>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
 
@@ -206,6 +217,7 @@ export default function ChatClient() {
         if(docSnap.exists()){
             const data = docSnap.data();
             setChatFilters(data.chatFilters || {});
+            setPersonalization(data.personalization || {});
         }
     });
     
@@ -498,7 +510,7 @@ export default function ChatClient() {
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
                 {messages.map(msg => (
-                  <MessageBubble key={msg.id} message={msg} isOwnMessage={msg.senderId === user?.uid} onMessageDelete={handleMessageDelete} chatFilters={chatFilters} />
+                  <MessageBubble key={msg.id} message={msg} isOwnMessage={msg.senderId === user?.uid} onMessageDelete={handleMessageDelete} chatFilters={chatFilters} language={personalization.language} />
                 ))}
                  <div ref={messagesEndRef} />
               </div>
