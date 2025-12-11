@@ -90,10 +90,9 @@ export async function translate(
 
   try {
     const translator = await Translator.getInstance(modelName);
-    const result = await translator(text, {
-      tgt_lang: targetLanguage,
-      src_lang: sourceLanguage,
-    });
+    // The Helsinki-NLP models determine source and target from the model name itself.
+    // They do not need the extra configuration object.
+    const result = await translator(text);
 
     const translatedText = Array.isArray(result)
       ? result[0].translation_text
