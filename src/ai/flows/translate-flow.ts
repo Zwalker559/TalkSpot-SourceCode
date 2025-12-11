@@ -1,19 +1,22 @@
 
 'use server';
 /**
- * @fileOverview A simple text translation AI flow.
+ * @fileOverview A self-hosted translation service using Hugging Face Transformers.js.
+ * This replaces the Genkit-based flow with a direct implementation.
  *
  * - translate - A function that handles the text translation.
  * - TranslateInput - The input type for the translate function.
  * - TranslateOutput - The return type for the translate function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
+import { z } from 'zod';
+import { pipeline, type Pipeline } from '@xenova/transformers';
+import { LRUCache } from 'lru-cache';
 
 export const TranslateInputSchema = z.object({
   text: z.string().describe('The text to translate.'),
   targetLanguage: z.string().describe('The language to translate the text into.'),
+  sourceLanguage: z.string().optional().describe('The source language of the text.'),
 });
 export type TranslateInput = z.infer<typeof TranslateInputSchema>;
 
@@ -22,25 +25,86 @@ export const TranslateOutputSchema = z.object({
 });
 export type TranslateOutput = z.infer<typeof TranslateOutputSchema>;
 
-export async function translate(input: TranslateInput): Promise<TranslateOutput> {
-  return await translateFlow(input);
+
+// Model map similar to the Python implementation
+const MODEL_MAP: Record<string, string> = {
+    'en-es': 'Helsinki-NLP/opus-mt-en-es',
+    'es-en': 'Helsinki-NLP/opus-mt-es-en',
+    'en-fr': 'Helsinki-NLP/opus-mt-en-fr',
+    'fr-en': 'Helsinki-NLP/opus-mt-fr-en',
+    'en-de': 'Helsinki-NLP/opus-mt-en-de',
+    'de-en': 'Helsinki-NLP/opus-mt-de-en',
+    'en-ja': 'Helsinki-NLP/opus-mt-en-jap', // Note: Model name might differ slightly
+    'ja-en': 'Helsinki-NLP/opus-mt-jap-en',
+};
+
+// --- Singleton class to manage translator pipelines ---
+// This ensures we only load each model into memory once.
+class Translator {
+  static instance: Pipeline | null = null;
+  static task: string = 'translation';
+  static model: string | null = null;
+
+  static async getInstance(model: string) {
+    if (this.model !== model || this.instance === null) {
+      this.model = model;
+      // NOTE: We disable quantization for server-side usage for better performance/accuracy trade-off
+      this.instance = await pipeline(this.task, model, { quantized: false });
+    }
+    return this.instance;
+  }
 }
 
-const prompt = ai.definePrompt({
-  name: 'translatePrompt',
-  input: {schema: TranslateInputSchema},
-  output: {schema: TranslateOutputSchema},
-  prompt: `Translate the following text to {{targetLanguage}}. Respond with only the translated text and nothing else:\n\n{{text}}`,
-});
+// --- In-memory cache for translation results ---
+const options = {
+  max: 500, // Max number of items in cache
+  ttl: 1000 * 60 * 60, // 1 hour
+};
+const translationCache = new LRUCache<string, string>(options);
 
-const translateFlow = ai.defineFlow(
-  {
-    name: 'translateFlow',
-    inputSchema: TranslateInputSchema,
-    outputSchema: TranslateOutputSchema,
-  },
-  async (input) => {
-    const {output} = await prompt(input);
-    return output!;
+
+/**
+ * Translates text using a self-hosted Hugging Face model.
+ * This is a standard Next.js Server Action.
+ * @param input - The text to translate and the target language.
+ * @returns The translated text.
+ */
+export async function translate(input: TranslateInput): Promise<TranslateOutput> {
+  const { text, targetLanguage } = TranslateInputSchema.parse(input);
+
+  // For this implementation, we'll assume source is always English ('en')
+  // A more advanced version could detect the source language.
+  const sourceLanguage = input.sourceLanguage || 'en';
+  
+  const modelKey = `${sourceLanguage}-${targetLanguage}`;
+  const modelName = MODEL_MAP[modelKey];
+
+  if (!modelName) {
+    throw new Error(`Translation from ${sourceLanguage} to ${targetLanguage} is not supported.`);
   }
-);
+
+  // Check cache first
+  const cacheKey = `${modelKey}:${text}`;
+  if (translationCache.has(cacheKey)) {
+    return { translatedText: translationCache.get(cacheKey)! };
+  }
+
+  try {
+    const translator = await Translator.getInstance(modelName);
+    const result = await translator(text, {
+      tgt_lang: targetLanguage,
+      src_lang: sourceLanguage,
+    });
+
+    const translatedText = Array.isArray(result) ? result[0].translation_text : result.translation_text;
+
+    // Store result in cache
+    translationCache.set(cacheKey, translatedText);
+
+    return { translatedText };
+
+  } catch (error: any) {
+    console.error("Translation pipeline failed:", error);
+    throw new Error("Failed to translate the message due to a server error.");
+  }
+}
