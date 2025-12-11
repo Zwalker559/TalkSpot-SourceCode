@@ -53,9 +53,13 @@ const themes = [
 
 const languages = [
     { value: 'en', label: 'English' },
-    { value: 'es', label: 'Spanish' },
     { value: 'fr', label: 'French' },
+    { value: 'es', label: 'Spanish' },
     { value: 'de', label: 'German' },
+    { value: 'it', label: 'Italian' },
+    { value: 'pt', label: 'Portuguese' },
+    { value: 'nl', label: 'Dutch' },
+    { value: 'ru', label: 'Russian' },
     { value: 'ja', label: 'Japanese' },
 ];
 
