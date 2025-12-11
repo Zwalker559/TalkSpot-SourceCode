@@ -38,17 +38,16 @@ const MODEL_MAP: Record<string, string> = {
 // --- Singleton class to manage translator pipelines ---
 // This ensures we only load each model into memory once.
 class Translator {
-  static instance: Pipeline | null = null;
-  static task: string = 'translation';
-  static model: string | null = null;
+  private static task: string = 'translation';
+  private static modelCache: Map<string, Pipeline> = new Map();
 
   static async getInstance(model: string) {
-    if (this.model !== model || this.instance === null) {
-      this.model = model;
+    if (!this.modelCache.has(model)) {
       // NOTE: We disable quantization for server-side usage for better performance/accuracy trade-off
-      this.instance = await pipeline(this.task, model, { quantized: false });
+      const instance = await pipeline(this.task, model, { quantized: false });
+      this.modelCache.set(model, instance);
     }
-    return this.instance;
+    return this.modelCache.get(model)!;
   }
 }
 
