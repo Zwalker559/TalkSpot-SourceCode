@@ -1,3 +1,2 @@
-
-// Flows will be imported for their side effects in this file.
-// The translate-flow and reset-password-flow are now standard server actions, no need to import here for Genkit dev.
+// This file is intentionally left blank.
+// Server Actions for AI flows are managed directly by Next.js and don't need to be registered here.

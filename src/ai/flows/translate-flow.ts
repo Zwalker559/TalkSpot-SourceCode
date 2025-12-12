@@ -2,7 +2,7 @@
 'use server';
 /**
  * @fileOverview A self-hosted translation service using Hugging Face Transformers.js.
- * This replaces the Genkit-based flow with a direct implementation.
+ * This file implements a translation server action based on the user's original Python implementation.
  *
  * - translate - A function that handles the text translation.
  */
@@ -15,7 +15,7 @@ import {
   TranslateOutput,
 } from './types';
 
-// Model map similar to the Python implementation
+// Model map identical to the user's Python implementation.
 const MODEL_MAP: Record<string, string> = {
   'en-fr': 'Helsinki-NLP/opus-mt-en-fr',
   'fr-en': 'Helsinki-NLP/opus-mt-fr-en',
@@ -36,40 +36,43 @@ const MODEL_MAP: Record<string, string> = {
 };
 
 // --- Singleton class to manage translator pipelines ---
-// This ensures we only load each model into memory once.
-class Translator {
+// This robust singleton ensures we only load each model into memory once and await its readiness.
+class TranslatorSingleton {
   private static task: string = 'translation';
-  // This will store the promise of the pipeline, ensuring we don't re-initialize
   private static modelPromises: Map<string, Promise<Pipeline>> = new Map();
 
-  static asyncgetInstance(model: string): Promise<Pipeline> {
+  static async getInstance(model: string): Promise<Pipeline> {
     if (!this.modelPromises.has(model)) {
       // If a promise for this model doesn't exist, create it.
-      // The promise will resolve with the pipeline instance.
+      // The promise will resolve with the fully loaded pipeline instance.
       this.modelPromises.set(
         model,
         new Promise(async (resolve, reject) => {
           try {
-            // NOTE: We disable quantization for server-side usage for better performance/accuracy trade-off
+            // The { quantized: false } is crucial for stable server-side performance.
             const instance = await pipeline(this.task, model, { quantized: false });
+            console.log(`Successfully loaded translation model: ${model}`);
             resolve(instance);
           } catch (error) {
+            console.error(`Failed to load model ${model}:`, error);
+            // If loading fails, remove the promise to allow for a retry on a subsequent call.
+            this.modelPromises.delete(model);
             reject(error);
           }
         })
       );
     }
-    // Return the promise. Subsequent calls for the same model will get the same promise.
+    // Return the promise. Subsequent calls for the same model will get the same promise,
+    // effectively waiting for the model to be loaded if it's the first time.
     return this.modelPromises.get(model)!;
   }
 }
 
-// --- In-memory cache for translation results ---
-const options = {
+// --- In-memory LRU cache for translation results ---
+const translationCache = new LRUCache<string, string>({
   max: 500, // Max number of items in cache
   ttl: 1000 * 60 * 60, // 1 hour
-};
-const translationCache = new LRUCache<string, string>(options);
+});
 
 /**
  * Translates text using a self-hosted Hugging Face model.
@@ -83,7 +86,6 @@ export async function translate(
   const { text, targetLanguage } = TranslateInputSchema.parse(input);
 
   // For this implementation, we'll assume source is always English ('en')
-  // A more advanced version could detect the source language.
   const sourceLanguage = input.sourceLanguage || 'en';
 
   const modelKey = `${sourceLanguage}-${targetLanguage}`;
@@ -102,9 +104,10 @@ export async function translate(
   }
 
   try {
-    const translator = await Translator.getInstance(modelName);
+    const translator = await TranslatorSingleton.getInstance(modelName);
+
     // The Helsinki-NLP models determine source and target from the model name itself.
-    // They do not need the extra configuration object.
+    // They expect only the text to be translated.
     const result = await translator(text);
 
     // The result is an array, we need the first element.
@@ -112,8 +115,8 @@ export async function translate(
       ? result[0].translation_text
       : (result as any).translation_text; // Fallback for unexpected structure
 
-    if (!translatedText) {
-        throw new Error("Translation resulted in empty text.");
+    if (typeof translatedText !== 'string' || !translatedText) {
+        throw new Error(`Translation pipeline returned an unexpected result structure: ${JSON.stringify(result)}`);
     }
       
     // Store result in cache
@@ -122,6 +125,7 @@ export async function translate(
     return { translatedText };
   } catch (error: any) {
     console.error('Translation pipeline failed:', error);
+    // Throw a generic error to the client to avoid leaking implementation details.
     throw new Error('Failed to translate the message due to a server error.');
   }
 }
