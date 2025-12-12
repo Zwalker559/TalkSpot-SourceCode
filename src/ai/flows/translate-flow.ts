@@ -39,15 +39,28 @@ const MODEL_MAP: Record<string, string> = {
 // This ensures we only load each model into memory once.
 class Translator {
   private static task: string = 'translation';
-  private static modelCache: Map<string, Pipeline> = new Map();
+  // This will store the promise of the pipeline, ensuring we don't re-initialize
+  private static modelPromises: Map<string, Promise<Pipeline>> = new Map();
 
-  static async getInstance(model: string) {
-    if (!this.modelCache.has(model)) {
-      // NOTE: We disable quantization for server-side usage for better performance/accuracy trade-off
-      const instance = await pipeline(this.task, model, { quantized: false });
-      this.modelCache.set(model, instance);
+  static asyncgetInstance(model: string): Promise<Pipeline> {
+    if (!this.modelPromises.has(model)) {
+      // If a promise for this model doesn't exist, create it.
+      // The promise will resolve with the pipeline instance.
+      this.modelPromises.set(
+        model,
+        new Promise(async (resolve, reject) => {
+          try {
+            // NOTE: We disable quantization for server-side usage for better performance/accuracy trade-off
+            const instance = await pipeline(this.task, model, { quantized: false });
+            resolve(instance);
+          } catch (error) {
+            reject(error);
+          }
+        })
+      );
     }
-    return this.modelCache.get(model)!;
+    // Return the promise. Subsequent calls for the same model will get the same promise.
+    return this.modelPromises.get(model)!;
   }
 }
 
@@ -94,10 +107,15 @@ export async function translate(
     // They do not need the extra configuration object.
     const result = await translator(text);
 
-    const translatedText = Array.isArray(result)
+    // The result is an array, we need the first element.
+    const translatedText = Array.isArray(result) && result.length > 0
       ? result[0].translation_text
-      : result.translation_text;
+      : (result as any).translation_text; // Fallback for unexpected structure
 
+    if (!translatedText) {
+        throw new Error("Translation resulted in empty text.");
+    }
+      
     // Store result in cache
     translationCache.set(cacheKey, translatedText);
 
