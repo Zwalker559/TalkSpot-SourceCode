@@ -1,44 +1,23 @@
-
 'use server';
 
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import admin from '@/firebase/admin';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import {
+  CreateAuditLogSchema,
+  UserCreationLogSchema,
+  DisplayNameChangeLogSchema,
+  ClearAuditLogsSchema,
+  DeleteUserFullySchema,
+  type CreateAuditLogInput,
+} from './types';
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 const db = getFirestore();
-
-const CreateAuditLogSchema = z.object({
-  actorUid: z.string(),
-  actorDisplayName: z.string(),
-  action: z.enum([
-      'user.create',
-      'user.edit.display_name',
-      'user.edit.display_name_self',
-      'user.edit.texting_id',
-      'user.edit.role',
-      'user.edit.status.suspended',
-      'user.edit.status.activated',
-      'user.edit.password_reset',
-      'user.delete',
-      'promotion.create',
-      'promotion.edit',
-      'promotion.delete',
-      'audit.clear'
-  ]),
-  targetInfo: z.object({
-    type: z.string(),
-    uid: z.string().optional(),
-    displayName: z.string().optional(),
-  }).optional(),
-  details: z.record(z.any()).optional(),
-});
-
-type CreateAuditLogInput = z.infer<typeof CreateAuditLogSchema>;
 
 /**
  * Creates a new audit log entry in Firestore.
@@ -67,12 +46,6 @@ export async function createAuditLog(input: CreateAuditLogInput) {
 /**
  * Logs the creation of a new user.
  */
-const UserCreationLogSchema = z.object({
-  uid: z.string(),
-  email: z.string().email(),
-  displayName: z.string(),
-  provider: z.string(),
-});
 export async function logUserCreation(input: z.infer<typeof UserCreationLogSchema>) {
   try {
     const { uid, email, displayName, provider } = UserCreationLogSchema.parse(input);
@@ -94,11 +67,6 @@ export async function logUserCreation(input: z.infer<typeof UserCreationLogSchem
 /**
  * Logs a user changing their own display name.
  */
-const DisplayNameChangeLogSchema = z.object({
-  uid: z.string(),
-  oldDisplayName: z.string(),
-  newDisplayName: z.string(),
-});
 export async function logDisplayNameChange(input: z.infer<typeof DisplayNameChangeLogSchema>) {
    try {
     const { uid, oldDisplayName, newDisplayName } = DisplayNameChangeLogSchema.parse(input);
@@ -117,9 +85,6 @@ export async function logDisplayNameChange(input: z.infer<typeof DisplayNameChan
 }
 
 
-const ClearAuditLogsSchema = z.object({
-  actorUid: z.string()
-});
 /**
  * Deletes all documents from the audit_logs collection.
  * This is a highly destructive and privileged action.
@@ -161,9 +126,6 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
 }
 
 
-const DeleteUserFullySchema = z.object({
-  uidToDelete: z.string(),
-});
 /**
  * Fully deletes a user from Firebase Authentication and all related Firestore data.
  * This is a highly destructive server-side action.
