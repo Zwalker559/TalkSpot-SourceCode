@@ -5,12 +5,16 @@
  *
  * - translate - A function that handles the text translation.
  */
-import { InferenceClient } from '@huggingface/inference';
+import HfInference from '@huggingface/inference';
 import {
   TranslateInput,
   TranslateInputSchema,
   TranslateOutput,
 } from './types';
+
+// Correctly initialize the InferenceClient from the default export
+const { InferenceClient } = HfInference;
+
 
 // Initialize the Inference Client.
 // It will automatically use the HF_TOKEN from your environment variables.
