@@ -15,11 +15,8 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, update
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
-import { useTranslation } from '@/hooks/use-translation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { logDisplayNameChange } from '@/app/admin/actions';
-import { resetPassword } from '@/app/admin/actions';
-
 
 const presetQuestions = [
   "What was your first pet's name?",
@@ -53,18 +50,6 @@ const themes = [
   { value: 'theme-kenny-d', label: 'Kenny (D)' },
 ];
 
-const languages = [
-    { value: 'en', label: 'English' },
-    { value: 'fr', label: 'French' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'de', label: 'German' },
-    { value: 'it', label: 'Italian' },
-    { value: 'pt', label: 'Portuguese' },
-    { value: 'nl', label: 'Dutch' },
-    { value: 'ru', label: 'Russian' },
-    { value: 'ja', label: 'Japanese' },
-];
-
 function obscureEmail(email?: string | null) {
   if (!email) return '';
   const [name, domain] = email.split('@');
@@ -89,6 +74,7 @@ export default function SettingsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -126,8 +112,7 @@ export default function SettingsPage() {
   const [chatFilters, setChatFilters] = useState<ChatFilters>({});
   
   // Personalization state
-  const [personalization, setPersonalization] = useState<PersonalizationSettings>({ theme: 'theme-classic', language: 'en' });
-  const { t, isLoading: isTranslationLoading } = useTranslation(personalization.language);
+  const [personalization, setPersonalization] = useState<PersonalizationSettings>({ theme: 'theme-classic-d' });
   
   // Visibility State
   const [visibility, setVisibility] = useState<Visibility>('private');
@@ -139,6 +124,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user && firestore) {
+      setIsLoading(true);
       // Listener for main user document
       const userDocRef = doc(firestore, 'users', user.uid);
       const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
@@ -149,7 +135,7 @@ export default function SettingsPage() {
           setTextingIdInput(data.textingId || '');
           setHasCustomizedId(data.textingIdIsSet || false);
           setChatFilters(data.chatFilters || {});
-          setPersonalization(data.personalization || { theme: 'theme-classic', language: 'en' });
+          setPersonalization(data.personalization || { theme: 'theme-classic-d' });
           setVisibility(data.visibility || 'private');
         }
       });
@@ -171,12 +157,14 @@ export default function SettingsPage() {
                     setCaseSensitive(data.isCaseSensitive || false);
                  }
             }
-        });
+            setIsLoading(false);
+        }, () => setIsLoading(false));
          return () => {
              unsubscribeUser();
              unsubscribeRecovery();
          };
       } else {
+          setIsLoading(false);
           return () => unsubscribeUser();
       }
     }
@@ -207,10 +195,10 @@ export default function SettingsPage() {
           newDisplayName: displayName,
       });
 
-      toast({ title: t('toasts.displayNameSuccessTitle'), description: t('toasts.displayNameSuccessDescription') });
+      toast({ title: "Success", description: "Display name updated." });
       setDisplayNameDialogOpen(false);
     } catch (error: any) {
-      toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: error.message });
+      toast({ variant: 'destructive', title: "Error", description: error.message });
     }
   }
 
@@ -228,7 +216,7 @@ export default function SettingsPage() {
 
     const idRegex = /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/;
     if (!idRegex.test(textingIdInput)) {
-        toast({ variant: 'destructive', title: t('toasts.textingIdInvalidFormatTitle'), description: t('toasts.textingIdInvalidFormatDescription') });
+        toast({ variant: 'destructive', title: "Invalid Format", description: "Texting ID must be in the format xxxx-xxxx and contain 8 alphanumeric characters." });
         return;
     }
 
@@ -238,7 +226,7 @@ export default function SettingsPage() {
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty && querySnapshot.docs[0].id !== user.uid) {
-             toast({ variant: 'destructive', title: t('toasts.textingIdTakenTitle'), description: t('toasts.textingIdTakenDescription') });
+             toast({ variant: 'destructive', title: "ID Taken", description: "This texting ID is already in use. Please choose another." });
             return;
         }
         
@@ -252,45 +240,45 @@ export default function SettingsPage() {
         
         await batch.commit();
         
-        toast({ title: t('toasts.textingIdSuccessTitle'), description: t('toasts.textingIdSuccessDescription') });
+        toast({ title: "Success", description: "Texting ID updated." });
         setTextingIdDialogOpen(false);
     } catch (error: any) {
         console.error("Error updating texting ID:", error);
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: error.message });
+        toast({ variant: 'destructive', title: "Error", description: error.message });
     }
   };
 
 
   const handlePasswordSave = async () => {
     if (!user || !user.email) {
-      toast({ variant: 'destructive', title: t('toasts.userNotFoundErrorTitle'), description: t('toasts.userNotFoundErrorDescription') });
+      toast({ variant: 'destructive', title: "User not found", description: "User not found or email not verified." });
       return;
     }
     try {
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
-      toast({ title: t('toasts.passwordSuccessTitle'), description: t('toasts.passwordSuccessDescription') });
+      toast({ title: "Success", description: "Password updated successfully." });
       setPasswordDialogOpen(false);
       setCurrentPassword('');
       setNewPassword('');
     } catch (error: any) {
-      toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t('toasts.passwordErrorDescription') });
+      toast({ variant: 'destructive', title: "Error", description: "Password change failed. Please check your current password." });
     }
   }
 
   const handleSecurityQuestionSave = async () => {
     if (!user || !user.email) {
-      toast({ variant: 'destructive', title: t('toasts.userNotFoundErrorTitle') });
+      toast({ variant: 'destructive', title: "User not found" });
       return;
     }
     if (!finalSecurityQuestion || !securityAnswer) {
-      toast({ variant: 'destructive', title: t('toasts.securityQuestionErrorTitle'), description: t('toasts.securityQuestionErrorDescription') });
+      toast({ variant: 'destructive', title: "Error", description: "Please fill out the question and answer." });
       return;
     }
     
     if (!passwordForSave) {
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t('toasts.providePasswordError') });
+        toast({ variant: 'destructive', title: "Error", description: "Please provide your password to save." });
         return;
     }
 
@@ -306,16 +294,16 @@ export default function SettingsPage() {
       });
       
       setSavedSecurityQuestion(finalSecurityQuestion);
-      toast({ title: t('toasts.successTitle'), description: t('toasts.securityQuestionSuccessDescription') });
+      toast({ title: "Success", description: "Security question saved." });
       setSecurityQuestionDialogOpen(false);
       setPasswordForSave('');
       setSecurityAnswer('');
 
     } catch (error: any) {
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t('toasts.incorrectPasswordError') });
+        toast({ variant: 'destructive', title: "Error", description: "Incorrect password." });
       } else {
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t('toasts.genericError') });
+        toast({ variant: 'destructive', title: "Error", description: "An error occurred. Please try again." });
       }
     }
   }
@@ -329,10 +317,10 @@ export default function SettingsPage() {
         await updateDoc(userDocRef, {
             chatFilters: newFilters,
         });
-        toast({ title: t('toasts.filtersSuccess') });
+        toast({ title: "Filter settings updated." });
     } catch (error) {
         console.error("Error updating filter settings:", error);
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t('toasts.filtersError') });
+        toast({ variant: 'destructive', title: "Error", description: "Could not save filter settings." });
     }
   }
   
@@ -345,10 +333,10 @@ export default function SettingsPage() {
         await updateDoc(userDocRef, {
             personalization: newSettings,
         });
-        toast({ title: t(`toasts.personalizationSuccess.${settingName}`) });
-    } catch (error) {
+        toast({ title: `${settingName.charAt(0).toUpperCase() + settingName.slice(1)} updated.` });
+    } catch (error: any) {
         console.error(`Error updating ${settingName}:`, error);
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t(`toasts.personalizationError.${settingName}`) });
+        toast({ variant: 'destructive', title: "Error", description: `Could not save ${settingName}.` });
     }
   }
 
@@ -376,7 +364,7 @@ export default function SettingsPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
        if (file.size > 500 * 1024) { // 500KB limit for Base64
-          toast({ variant: 'destructive', title: t('toasts.fileTooLargeTitle'), description: t('toasts.fileTooLargeDescription') });
+          toast({ variant: 'destructive', title: "File too large", description: "Please select an image smaller than 500KB." });
           return;
       }
       setNewAvatarFile(file);
@@ -417,10 +405,10 @@ export default function SettingsPage() {
 
         await batch.commit();
 
-        toast({ title: t('toasts.avatarSuccessTitle'), description: t('toasts.avatarSuccessDescription') });
+        toast({ title: "Success", description: "Profile picture updated." });
     } catch (error: any) {
         console.error("Error updating profile picture:", error);
-        toast({ variant: 'destructive', title: t('toasts.errorTitle'), description: t('toasts.avatarErrorDescription') });
+        toast({ variant: 'destructive', title: "Error", description: "Could not update profile picture." });
     } finally {
         setAvatarDialogOpen(false);
         setNewAvatarPreview(null);
@@ -474,7 +462,7 @@ export default function SettingsPage() {
     </div>
   )
 
-  if (isTranslationLoading) {
+  if (isLoading) {
     return <PageSkeleton />;
   }
 
@@ -482,9 +470,9 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('account.title')}</CardTitle>
+          <CardTitle>Account Information</CardTitle>
           <CardDescription>
-            {t('account.description')}
+            Manage your account details.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -496,37 +484,37 @@ export default function SettingsPage() {
                   <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <Label>{t('account.avatarLabel')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account.avatarDescription')}</p>
+                <Label>Profile Picture</Label>
+                <p className="text-sm text-muted-foreground">Click edit to change your avatar.</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>{t('buttons.edit')}</Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>Edit</Button>
             <Input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/png, image/jpeg, image/gif" />
           </div>
 
           {/* Display Name */}
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="displayName">{t('account.displayNameLabel')}</Label>
+              <Label htmlFor="displayName">Display Name</Label>
               <p id="displayName" className="text-lg font-medium">{displayName}</p>
             </div>
             <Dialog open={isDisplayNameDialogOpen} onOpenChange={setDisplayNameDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">{t('buttons.edit')}</Button>
+                <Button variant="outline">Edit</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{t('account.displayNameDialogTitle')}</DialogTitle>
+                  <DialogTitle>Edit Display Name</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-2 py-4">
-                  <Label htmlFor="displayNameInput">{t('account.displayNameDialogLabel')}</Label>
+                  <Label htmlFor="displayNameInput">New Display Name</Label>
                   <Input id="displayNameInput" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button variant="outline">{t('buttons.cancel')}</Button>
+                    <Button variant="outline">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleDisplayNameSave}>{t('buttons.save')}</Button>
+                  <Button onClick={handleDisplayNameSave}>Save</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -535,27 +523,27 @@ export default function SettingsPage() {
           {/* Texting ID */}
            <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="textingId">{t('account.textingIdLabel')}</Label>
+              <Label htmlFor="textingId">Texting ID</Label>
               <p id="textingId" className="text-lg font-medium font-mono">{textingId || 'Not set'}</p>
             </div>
             <Dialog open={isTextingIdDialogOpen} onOpenChange={setTextingIdDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" disabled={hasCustomizedId}>{t('buttons.edit')}</Button>
+                <Button variant="outline" disabled={hasCustomizedId}>Edit</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{t('account.textingIdDialogTitle')}</DialogTitle>
-                  <CardDescription>{t('account.textingIdDialogDescription')}</CardDescription>
+                  <DialogTitle>Edit Texting ID</DialogTitle>
+                  <CardDescription>You can customize your Texting ID. This can only be done once.</CardDescription>
                 </DialogHeader>
                 <div className="space-y-2 py-4">
-                  <Label htmlFor="textingIdInput">{t('account.textingIdDialogLabel')}</Label>
+                  <Label htmlFor="textingIdInput">New Texting ID</Label>
                   <Input id="textingIdInput" placeholder="xxxx-xxxx" value={textingIdInput} onChange={handleTextingIdChange} maxLength={9}/>
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button variant="outline">{t('buttons.cancel')}</Button>
+                    <Button variant="outline">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleTextingIdSave}>{t('buttons.save')}</Button>
+                  <Button onClick={handleTextingIdSave}>Save</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -564,13 +552,13 @@ export default function SettingsPage() {
           {/* Username / Email */}
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="username">{t('account.emailLabel')}</Label>
+              <Label htmlFor="username">Username (Email)</Label>
               <p id="username" className="text-lg font-medium font-mono tracking-wider">
                 {showEmail ? user?.email : obscureEmail(user?.email)}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowEmail(!showEmail)}>{showEmail ? t('buttons.hide') : t('buttons.show')}</Button>
+              <Button variant="outline" size="sm" onClick={() => setShowEmail(!showEmail)}>{showEmail ? "Hide" : "Show"}</Button>
             </div>
           </div>
           
@@ -594,32 +582,32 @@ export default function SettingsPage() {
           {!isGoogleUser && (
             <div className="flex items-center justify-between">
                 <div>
-                <Label>{t('account.passwordLabel')}</Label>
+                <Label>Password</Label>
                 <p className="text-lg font-mono tracking-widest">••••••••</p>
                 </div>
                 <Dialog open={isPasswordDialogOpen} onOpenChange={setPasswordDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="outline">{t('buttons.edit')}</Button>
+                    <Button variant="outline">Edit</Button>
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
-                    <DialogTitle>{t('account.passwordDialogTitle')}</DialogTitle>
+                    <DialogTitle>Change Password</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                     <div className='space-y-2'>
-                        <Label htmlFor="currentPassword">{t('account.passwordDialogCurrentLabel')}</Label>
+                        <Label htmlFor="currentPassword">Current Password</Label>
                         <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
                     </div>
                     <div className='space-y-2'>
-                        <Label htmlFor="newPassword">{t('account.passwordDialogNewLabel')}</Label>
+                        <Label htmlFor="newPassword">New Password</Label>
                         <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
                     </div>
                     </div>
                     <DialogFooter>
                     <DialogClose asChild>
-                        <Button variant="outline">{t('buttons.cancel')}</Button>
+                        <Button variant="outline">Cancel</Button>
                     </DialogClose>
-                    <Button onClick={handlePasswordSave}>{t('buttons.save')}</Button>
+                    <Button onClick={handlePasswordSave}>Save</Button>
                     </DialogFooter>
                 </DialogContent>
                 </Dialog>
@@ -630,38 +618,22 @@ export default function SettingsPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>{t('personalization.title')}</CardTitle>
-            <CardDescription>{t('personalization.description')}</CardDescription>
+            <CardTitle>Personalization</CardTitle>
+            <CardDescription>Customize the look and feel of the application.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <Label htmlFor="theme-select">{t('personalization.themeLabel')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('personalization.themeDescription')}</p>
+                    <Label htmlFor="theme-select">Theme</Label>
+                    <p className="text-sm text-muted-foreground">Select a color theme for the UI.</p>
                 </div>
                 <Select value={personalization.theme} onValueChange={(value) => handlePersonalizationChange('theme', value)}>
                     <SelectTrigger id="theme-select" className="w-[180px]">
-                        <SelectValue placeholder={t('personalization.themePlaceholder')} />
+                        <SelectValue placeholder="Select theme" />
                     </SelectTrigger>
                     <SelectContent>
                         {themes.map(theme => (
                             <SelectItem key={theme.value} value={theme.value}>{theme.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="flex items-center justify-between">
-                <div>
-                    <Label htmlFor="language-select">{t('personalization.languageLabel')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('personalization.languageDescription')}</p>
-                </div>
-                 <Select value={personalization.language} onValueChange={(value) => handlePersonalizationChange('language', value)}>
-                    <SelectTrigger id="language-select" className="w-[180px]">
-                        <SelectValue placeholder={t('personalization.languagePlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {languages.map(lang => (
-                            <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -671,23 +643,23 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('filters.title')}</CardTitle>
+          <CardTitle>Chat Filtration</CardTitle>
           <CardDescription>
-            {t('filters.description')}
+            Automatically hide content from incoming messages.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <Label htmlFor="filter-links">{t('filters.linksLabel')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('filters.linksDescription')}</p>
+                    <Label htmlFor="filter-links">Block Links</Label>
+                    <p className="text-sm text-muted-foreground">Hide messages that contain URLs.</p>
                 </div>
                 <Switch id="filter-links" checked={chatFilters.blockLinks || false} onCheckedChange={(value) => handleFilterChange('blockLinks', value)} />
             </div>
             <div className="flex items-center justify-between">
                 <div>
-                    <Label htmlFor="filter-profanity">{t('filters.profanityLabel')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('filters.profanityDescription')}</p>
+                    <Label htmlFor="filter-profanity">Block Profanity</Label>
+                    <p className="text-sm text-muted-foreground">Hide messages that contain profane language.</p>
                 </div>
                 <Switch id="filter-profanity" checked={chatFilters.blockProfanity || false} onCheckedChange={(value) => handleFilterChange('blockProfanity', value)} />
             </div>
@@ -697,75 +669,75 @@ export default function SettingsPage() {
       {!isGoogleUser && (
       <Card>
         <CardHeader>
-          <CardTitle>{t('security.title')}</CardTitle>
+          <CardTitle>Security Question</CardTitle>
           <CardDescription>
-            {t('security.description')}
+            This question can be used to recover your account if you forget your password.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
            <div>
-              <Label>{t('security.questionLabel')}</Label>
+              <Label>Your Question</Label>
               <p className="text-lg font-medium">{savedSecurityQuestion || 'Not set'}</p>
             </div>
           <Dialog open={isSecurityQuestionDialogOpen} onOpenChange={setSecurityQuestionDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">{savedSecurityQuestion ? t('buttons.edit') : t('buttons.set')}</Button>
+              <Button variant="outline">{savedSecurityQuestion ? "Edit" : "Set"}</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>{savedSecurityQuestion ? t('security.editDialogTitle') : t('security.setDialogTitle')}</DialogTitle>
+                <DialogTitle>{savedSecurityQuestion ? "Edit Security Question" : "Set Security Question"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="question" className="text-right">
-                    {t('security.dialogQuestionLabel')}
+                    Question
                   </Label>
                   <Select onValueChange={setSecurityQuestion} value={securityQuestion}>
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder={t('security.dialogQuestionPlaceholder')} />
+                      <SelectValue placeholder="Select a question" />
                     </SelectTrigger>
                     <SelectContent>
                       {presetQuestions.map((q, i) => (
                         <SelectItem key={i} value={q}>{q}</SelectItem>
                       ))}
-                      <SelectItem value="custom">{t('security.dialogQuestionCustom')}</SelectItem>
+                      <SelectItem value="custom">Create your own...</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {securityQuestion === 'custom' && (
                   <div className="grid grid-cols-4 items-center gap-4">
                      <Label htmlFor="custom-question" className="text-right col-span-1">
-                      {t('security.dialogCustomQuestionLabel')}
+                      Custom
                     </Label>
-                    <Input id="custom-question" className="col-span-3" placeholder={t('security.dialogCustomQuestionPlaceholder')} value={customSecurityQuestion} onChange={(e) => setCustomSecurityQuestion(e.target.value)} />
+                    <Input id="custom-question" className="col-span-3" placeholder="Type your question" value={customSecurityQuestion} onChange={(e) => setCustomSecurityQuestion(e.target.value)} />
                   </div>
                 )}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="answer" className="text-right">
-                    {t('security.dialogAnswerLabel')}
+                    Answer
                   </Label>
                   <Input id="answer" className="col-span-3" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="case-sensitive" className="text-right">
-                    {t('security.dialogCaseSensitiveLabel')}
+                    Case Sensitive
                   </Label>
                   <Switch id="case-sensitive" checked={isCaseSensitive} onCheckedChange={setCaseSensitive} />
                 </div>
                 {!isGoogleUser && (
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="password-confirm" className="text-right">
-                      {t('security.dialogPasswordLabel')}
+                      Your Password
                     </Label>
-                    <Input id="password-confirm" type="password" className="col-span-3" placeholder={t('security.dialogPasswordPlaceholder')} value={passwordForSave} onChange={(e) => setPasswordForSave(e.target.value)} />
+                    <Input id="password-confirm" type="password" className="col-span-3" placeholder="Enter password to save" value={passwordForSave} onChange={(e) => setPasswordForSave(e.target.value)} />
                   </div>
                 )}
               </div>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="outline">{t('buttons.cancel')}</Button>
+                  <Button variant="outline">Cancel</Button>
                 </DialogClose>
-                <Button onClick={handleSecurityQuestionSave}>{t('buttons.saveChanges')}</Button>
+                <Button onClick={handleSecurityQuestionSave}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -776,9 +748,9 @@ export default function SettingsPage() {
       <Dialog open={isAvatarDialogOpen} onOpenChange={setAvatarDialogOpen}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>{t('account.avatarDialogTitle')}</DialogTitle>
+                <DialogTitle>Set New Profile Picture</DialogTitle>
                 <CardDescription>
-                    {t('account.avatarDialogDescription')}
+                    This will be your new avatar across the application.
                 </CardDescription>
             </DialogHeader>
             <div className="flex justify-center items-center py-4">
@@ -787,8 +759,8 @@ export default function SettingsPage() {
                 )}
             </div>
             <DialogFooter>
-                <Button variant="outline" onClick={() => setAvatarDialogOpen(false)}>{t('buttons.cancel')}</Button>
-                <Button onClick={handleAvatarSave}>{t('buttons.saveAndSet')}</Button>
+                <Button variant="outline" onClick={() => setAvatarDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleAvatarSave}>Save and Set</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
