@@ -69,10 +69,9 @@ export async function translate(
     const translatedText = (result as any).translation_text;
 
     if (typeof translatedText !== 'string' || !translatedText) {
+      console.error('Hugging Face API returned an unexpected result structure:', result);
       throw new Error(
-        `Translation API returned an unexpected result structure: ${JSON.stringify(
-          result
-        )}`
+        `Translation API returned an unexpected result structure.`
       );
     }
 
