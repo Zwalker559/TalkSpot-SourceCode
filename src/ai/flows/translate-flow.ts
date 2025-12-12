@@ -5,20 +5,16 @@
  *
  * - translate - A function that handles the text translation.
  */
-import HfInference from '@huggingface/inference';
+import { HfInference } from '@huggingface/inference';
 import {
   TranslateInput,
   TranslateInputSchema,
   TranslateOutput,
 } from './types';
 
-// Correctly initialize the InferenceClient from the default export
-const { InferenceClient } = HfInference;
-
-
 // Initialize the Inference Client.
 // It will automatically use the HF_TOKEN from your environment variables.
-const hf = new InferenceClient(process.env.HF_TOKEN);
+const hf = new HfInference(process.env.HF_TOKEN);
 
 // Model map identical to your original implementation.
 const MODEL_MAP: Record<string, string> = {
@@ -70,7 +66,7 @@ export async function translate(
     });
 
     // The InferenceClient directly returns the translated text in the `translation_text` property.
-    const translatedText = result.translation_text;
+    const translatedText = (result as any).translation_text;
 
     if (typeof translatedText !== 'string' || !translatedText) {
       throw new Error(
