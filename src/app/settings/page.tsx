@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { useTranslation } from '@/hooks/use-translation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { logDisplayNameChange } from '@/app/admin/actions';
+import { logDisplayNameChange, resetPassword } from '@/app/admin/actions';
 
 const presetQuestions = [
   "What was your first pet's name?",
