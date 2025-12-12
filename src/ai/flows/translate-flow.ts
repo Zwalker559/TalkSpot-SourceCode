@@ -65,7 +65,7 @@ export async function translate(
       inputs: text,
     });
 
-    // The InferenceClient directly returns the translated text in the `translation_text` property.
+    // The HfInference client directly returns the translated text in the `translation_text` property.
     const translatedText = (result as any).translation_text;
 
     if (typeof translatedText !== 'string' || !translatedText) {
