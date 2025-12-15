@@ -18,7 +18,8 @@ export const CreateAuditLogSchema = z.object({
       'promotion.delete',
       'audit.clear',
       'notice.send',
-      'notice.clear'
+      'notice.clear',
+      'system.repair_orphaned_users'
   ]),
   targetInfo: z.object({
     type: z.string(),
@@ -55,3 +56,9 @@ export const GlobalNoticeSchema = z.object({
   actorUid: z.string(),
   message: z.string().min(1, "Message cannot be empty.").max(500, "Message is too long."),
 });
+
+export const RepairOrphanedUsersSchema = z.object({
+  actorUid: z.string(),
+});
+
+    

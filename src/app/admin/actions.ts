@@ -11,6 +11,7 @@ import {
   ClearAuditLogsSchema,
   DeleteUserFullySchema,
   GlobalNoticeSchema,
+  RepairOrphanedUsersSchema,
   type CreateAuditLogInput,
 } from './types';
 
@@ -95,8 +96,8 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
 
     // Security check: Only the Owner can perform this action.
     const actorDoc = await db.collection('users').doc(actorUid).get();
-    if (!actorDoc.exists || actorDoc.data()?.role !== 'Owner') {
-        throw new Error('Permission Denied: You must be an Owner to clear audit logs.');
+    if (!actorDoc.exists || !['Owner', 'Co-Owner'].includes(actorDoc.data()?.role)) {
+        throw new Error('Permission Denied: You must be an Owner or Co-Owner to clear audit logs.');
     }
 
     try {
@@ -184,25 +185,28 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
     }
 }
 
-
-// Check if a user is an owner before performing privileged actions
-async function isOwner(uid: string): Promise<{ isOwner: boolean, displayName: string | null }> {
+async function isPrivilegedUser(uid: string): Promise<{ isPrivileged: boolean; displayName: string | null; role: string | null }> {
     const actorDoc = await db.collection('users').doc(uid).get();
-    if (!actorDoc.exists || actorDoc.data()?.role !== 'Owner') {
-        return { isOwner: false, displayName: null };
+    if (!actorDoc.exists) {
+        return { isPrivileged: false, displayName: null, role: null };
     }
-    return { isOwner: true, displayName: actorDoc.data()?.displayName || 'Owner' };
+    const role = actorDoc.data()?.role;
+    if (!['Owner', 'Co-Owner'].includes(role)) {
+        return { isPrivileged: false, displayName: actorDoc.data()?.displayName, role };
+    }
+    return { isPrivileged: true, displayName: actorDoc.data()?.displayName, role };
 }
 
+
 /**
- * Sends or updates the global notice. Only callable by an Owner.
+ * Sends or updates the global notice. Only callable by an Owner or Co-Owner.
  */
 export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>) {
     const { actorUid, message } = GlobalNoticeSchema.parse(input);
 
-    const { isOwner: isActorOwner, displayName } = await isOwner(actorUid);
-    if (!isActorOwner) {
-        throw new Error('Permission Denied: You must be an Owner to send a global notice.');
+    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid);
+    if (!isPrivileged) {
+        throw new Error('Permission Denied: You must be an Owner or Co-Owner to send a global notice.');
     }
 
     try {
@@ -232,13 +236,13 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
 
 
 /**
- * Clears the global notice. Only callable by an Owner.
+ * Clears the global notice. Only callable by an Owner or Co-Owner.
  */
 export async function clearGlobalNotice(input: { actorUid: string }) {
     const { actorUid } = input;
-    const { isOwner: isActorOwner, displayName } = await isOwner(actorUid);
-    if (!isActorOwner) {
-        throw new Error('Permission Denied: You must be an Owner to clear the notice.');
+    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid);
+    if (!isPrivileged) {
+        throw new Error('Permission Denied: You must be an Owner or Co-Owner to clear the notice.');
     }
 
     try {
@@ -258,3 +262,68 @@ export async function clearGlobalNotice(input: { actorUid: string }) {
         throw new Error('Failed to clear notice.');
     }
 }
+
+/**
+ * Finds and removes orphaned Firestore user data for users that no longer exist in Auth.
+ */
+export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUsersSchema>): Promise<{ deletedCount: number }> {
+    const { actorUid } = RepairOrphanedUsersSchema.parse(input);
+
+    // 1. Security Check
+    const { isPrivileged, displayName, role } = await isPrivilegedUser(actorUid);
+    if (!isPrivileged) {
+        throw new Error('Permission Denied: You must be an Owner or Co-Owner to perform this action.');
+    }
+
+    try {
+        // 2. Fetch all Auth UIDs
+        const listUsersResult = await admin.auth().listUsers(1000);
+        const authUids = new Set(listUsersResult.users.map(userRecord => userRecord.uid));
+
+        // 3. Fetch all Firestore User UIDs
+        const usersCollection = db.collection('users');
+        const firestoreUsersSnapshot = await usersCollection.get();
+        const firestoreUids = new Set(firestoreUsersSnapshot.docs.map(doc => doc.id));
+
+        // 4. Find the difference
+        const orphanedUids = Array.from(firestoreUids).filter(uid => !authUids.has(uid));
+
+        if (orphanedUids.length === 0) {
+            return { deletedCount: 0 };
+        }
+
+        // 5. Delete orphaned data in batches
+        const batch = db.batch();
+        orphanedUids.forEach(uid => {
+            const userDocRef = db.collection('users').doc(uid);
+            const userLookupDocRef = db.collection('user_lookups').doc(uid);
+            const passwordRecoveryDocRef = db.collection('password_recovery').doc(uid);
+            
+            batch.delete(userDocRef);
+            batch.delete(userLookupDocRef);
+            batch.delete(passwordRecoveryDocRef);
+        });
+
+        await batch.commit();
+
+        // 6. Log the action
+        await createAuditLog({
+            actorUid,
+            actorDisplayName: displayName!,
+            action: 'system.repair_orphaned_users',
+            details: {
+                count: orphanedUids.length,
+                orphanedUids: orphanedUids,
+            }
+        });
+        
+        revalidatePath('/admin');
+        return { deletedCount: orphanedUids.length };
+
+    } catch (error) {
+        console.error('Error repairing orphaned users:', error);
+        throw new Error('An unexpected error occurred during the repair process.');
+    }
+}
+
+    

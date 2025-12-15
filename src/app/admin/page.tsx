@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 import { format, subDays } from 'date-fns';
-import { createAuditLog, clearAuditLogs, deleteUserFully, sendGlobalNotice, clearGlobalNotice } from './actions';
+import { createAuditLog, clearAuditLogs, deleteUserFully, sendGlobalNotice, clearGlobalNotice, repairOrphanedUsers } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -112,6 +112,7 @@ function UserManagementTool() {
 
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
+  const [isRepairDialogOpen, setRepairDialogOpen] = useState(false);
   
   // State for the unified edit dialog
   const [editDisplayName, setEditDisplayName] = useState('');
@@ -321,19 +322,43 @@ function UserManagementTool() {
         setUserToRemove(null);
     }
   };
+
+  const handleRepairOrphanedUsers = async () => {
+    if (!currentUser) return;
+    try {
+      const result = await repairOrphanedUsers({ actorUid: currentUser.uid });
+      toast({
+        title: 'Repair Complete',
+        description: `Successfully removed ${result.deletedCount} orphaned user(s).`,
+      });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Repair Failed', description: error.message });
+    } finally {
+      setRepairDialogOpen(false);
+    }
+  };
   
   // Determine permissions for the edit dialog
   const canEditRoles = currentUserRole && ['Owner', 'Co-Owner', 'Lead-Manager'].includes(currentUserRole);
   const canEditPassword = currentUserRole && ['Owner', 'Co-Owner'].includes(currentUserRole);
+  const canRepair = currentUserRole && ['Owner', 'Co-Owner'].includes(currentUserRole);
 
   return (
     <>
     <Card>
-      <CardHeader>
-        <CardTitle>User Management</CardTitle>
-        <CardDescription>
-          View, edit, and manage all user accounts.
-        </CardDescription>
+      <CardHeader className="flex-row items-center justify-between">
+        <div>
+          <CardTitle>User Management</CardTitle>
+          <CardDescription>
+            View, edit, and manage all user accounts.
+          </CardDescription>
+        </div>
+        {canRepair && (
+          <Button variant="outline" onClick={() => setRepairDialogOpen(true)}>
+            <Wrench className="mr-2 h-4 w-4" />
+            Repair
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
@@ -406,6 +431,24 @@ function UserManagementTool() {
         </Table>
       </CardContent>
     </Card>
+
+    <AlertDialog open={isRepairDialogOpen} onOpenChange={setRepairDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Repair Orphaned Users?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action will scan for and remove all Firestore data associated with users that no longer exist in Firebase Authentication. This is useful for cleaning up after manual deletions or data inconsistencies. This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleRepairOrphanedUsers}>
+                    Yes, Run Repair
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
 
     <AlertDialog open={isRemoveDialogOpen} onOpenChange={setRemoveDialogOpen}>
         <AlertDialogContent>
@@ -1340,6 +1383,7 @@ export default function AdminDashboardPage() {
   }
 
   const isOwner = userRole === 'Owner';
+  const isCoOwner = userRole === 'Co-Owner';
 
   if (!['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole)) {
     return (
@@ -1363,11 +1407,11 @@ export default function AdminDashboardPage() {
       </div>
 
       <Tabs defaultValue="user-management" className="w-full">
-        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${isOwner || isCoOwner ? 'grid-cols-4' : 'grid-cols-2'}`}>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
           <TabsTrigger value="sponsors">Sponsors</TabsTrigger>
-          {isOwner && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
-          {isOwner && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
+          {(isOwner || isCoOwner) && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
+          {(isOwner || isCoOwner) && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
           <UserManagementTool />
@@ -1375,12 +1419,12 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
-        {isOwner && (
+        {(isOwner || isCoOwner) && (
             <TabsContent value="notices" className="mt-6">
                 <NoticeManagementTool />
             </TabsContent>
         )}
-        {isOwner && (
+        {(isOwner || isCoOwner) && (
             <TabsContent value="audit-logs" className="mt-6">
                 <AuditLogTool />
             </TabsContent>
@@ -1389,3 +1433,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
