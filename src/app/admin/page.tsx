@@ -1,4 +1,3 @@
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
@@ -25,7 +24,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -146,9 +146,13 @@ function UserManagementTool() {
       });
       setUsers(userList);
       setLoading(false);
-    }, (serverError) => {
-        console.error("Error listening to users collection:", serverError);
+    }, (error) => {
+        console.error("Error listening to users collection:", error);
         setLoading(false);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: usersColRef.path,
+            operation: 'list',
+        } satisfies SecurityRuleContext));
     });
 
     return () => unsubscribe();
@@ -162,8 +166,12 @@ function UserManagementTool() {
                 if (doc.exists()) {
                     setCurrentUserRole(doc.data().role);
                 }
-            }, (serverError) => {
-                 console.error("Error listening to current user role:", serverError);
+            }, (error) => {
+                 console.error("Error listening to current user role:", error);
+                 errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'get',
+                } satisfies SecurityRuleContext));
             });
             return () => unsubscribe();
         }
@@ -627,7 +635,10 @@ function SponsorManagementTool() {
             }));
         }, (err) => {
             console.error("Error listening to Sponsorships:", err);
-            // Don't toast here as it can be noisy
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: promoColRef.path,
+                operation: 'list',
+            } satisfies SecurityRuleContext));
         });
 
         return () => unsubscribe();
@@ -1042,6 +1053,10 @@ function AuditLogTool() {
             console.error("Error fetching audit logs:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch audit logs.' });
             setLoading(false);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: logsQuery.path,
+                operation: 'list',
+            } satisfies SecurityRuleContext));
         });
 
         return () => unsubscribe();
@@ -1300,6 +1315,12 @@ function NoticeManagementTool() {
                     setMessage('');
                 }
             }
+        },
+        (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: noticeRef.path,
+                operation: 'get',
+            } satisfies SecurityRuleContext));
         });
         return () => unsubscribe();
     }, [firestore]);
@@ -1373,6 +1394,12 @@ export default function AdminDashboardPage() {
         if (doc.exists()) {
           setUserRole(doc.data().role);
         }
+      },
+      (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'get',
+          } satisfies SecurityRuleContext));
       });
       return () => unsubscribe();
     }
@@ -1433,5 +1460,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

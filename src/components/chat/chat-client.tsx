@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import {
   collection,
   query,
@@ -16,6 +17,7 @@ import {
   getDoc,
   getDocs,
   writeBatch,
+  Query,
 } from 'firebase/firestore';
 import { useSearchParams } from 'next/navigation';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -210,6 +212,12 @@ export default function ChatClient() {
             const data = docSnap.data();
             setChatFilters(data.chatFilters || {});
         }
+    },
+    (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'get',
+        } satisfies SecurityRuleContext));
     });
     
     const q = query(
@@ -231,6 +239,12 @@ export default function ChatClient() {
       });
 
       setConversations(convos);
+    },
+    (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: (q as Query).path,
+            operation: 'list',
+        } satisfies SecurityRuleContext));
     });
 
     return () => {
@@ -275,6 +289,12 @@ export default function ChatClient() {
          } as Message;
       });
       setMessages(msgs);
+    },
+    (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: (messagesQuery as Query).path,
+            operation: 'list',
+        } satisfies SecurityRuleContext));
     });
 
     return () => unsubscribe();

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -18,7 +17,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useFirestore } from '@/firebase';
+import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 
 type Promotion = {
@@ -77,6 +77,10 @@ export default function SidebarPromotions() {
         setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
         }, (error) => {
             console.error("Error listening to Sponsorships collection:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: q.path,
+                operation: 'list',
+            } satisfies SecurityRuleContext));
         });
         
     return () => unsubscribe();

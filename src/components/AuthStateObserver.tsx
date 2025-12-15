@@ -1,7 +1,7 @@
-
 'use client';
 
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Logo } from './logo';
@@ -50,6 +50,12 @@ export function AuthStateObserver({
           const data = docSnap.data();
           setPersonalization(data.personalization || { theme: 'theme-classic-d', language: 'en' });
         }
+      },
+      (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'get',
+          } satisfies SecurityRuleContext));
       });
        return () => unsubscribe();
     } else {

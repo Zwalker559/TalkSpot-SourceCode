@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -9,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, onSnapshot, writeBatch, setDoc } from 'firebase/firestore';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -138,6 +138,12 @@ export default function SettingsPage() {
           setPersonalization(data.personalization || { theme: 'theme-classic-d' });
           setVisibility(data.visibility || 'private');
         }
+      },
+      (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'get',
+        } satisfies SecurityRuleContext));
       });
       
       // Listener for password recovery document
@@ -158,7 +164,13 @@ export default function SettingsPage() {
                  }
             }
             setIsLoading(false);
-        }, () => setIsLoading(false));
+        }, (error) => {
+          setIsLoading(false)
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: recoveryDocRef.path,
+              operation: 'get',
+          } satisfies SecurityRuleContext));
+        });
          return () => {
              unsubscribeUser();
              unsubscribeRecovery();

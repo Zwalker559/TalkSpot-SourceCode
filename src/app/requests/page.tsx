@@ -1,8 +1,8 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import { collection, query, where, getDocs, addDoc, onSnapshot, doc, updateDoc, deleteDoc, getDoc, serverTimestamp, limit, startAt, endAt, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,6 +121,12 @@ export default function RequestsPage() {
         }
       }
       setIncomingRequests(requests);
+    },
+    (error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: q.path,
+          operation: 'list',
+      } satisfies SecurityRuleContext));
     });
     return () => unsubscribe();
   }, [user, firestore]);
@@ -147,6 +153,12 @@ export default function RequestsPage() {
         }
       }
       setOutgoingRequests(requests.filter(r => r.status !== 'accepted')); // Don't show accepted requests here
+    },
+    (error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: q.path,
+          operation: 'list',
+      } satisfies SecurityRuleContext));
     });
     return () => unsubscribe();
   }, [user, firestore]);

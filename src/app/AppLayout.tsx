@@ -33,7 +33,8 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { useUser } from '@/firebase';
+import { useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import type { SecurityRuleContext } from '@/firebase/errors';
 import { getAuth, signOut, EmailAuthProvider, reauthenticateWithCredential, updateProfile } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
@@ -109,6 +110,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           } else {
               setGlobalNotice(null);
           }
+      },
+      (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: noticeDocRef.path,
+            operation: 'get',
+        } satisfies SecurityRuleContext));
       });
         
       const userDocRef = doc(firestore, 'users', user.uid);
@@ -154,6 +161,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }, (error) => {
           console.error("Error listening to user document:", error);
           setUserDataLoaded(true);
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'get',
+          } satisfies SecurityRuleContext));
       });
        return () => {
          unsubscribeNotice();
