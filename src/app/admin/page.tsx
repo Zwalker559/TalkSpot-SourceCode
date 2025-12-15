@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench, Info } from 'lucide-react';
@@ -1474,17 +1475,16 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
-        {isPrivileged && (
-            <TabsContent value="notices" className="mt-6">
-                <NoticeManagementTool userRole={userRole} />
-            </TabsContent>
-        )}
-        {isOwner && (
-            <TabsContent value="audit-logs" className="mt-6">
-                <AuditLogTool />
-            </TabsContent>
-        )}
+        <TabsContent value="notices" className="mt-6">
+            {isPrivileged && <NoticeManagementTool userRole={userRole} />}
+        </TabsContent>
+        <TabsContent value="audit-logs" className="mt-6">
+            {isOwner && <AuditLogTool />}
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
+
+
+    
