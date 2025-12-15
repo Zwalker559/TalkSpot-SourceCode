@@ -259,7 +259,8 @@
                         "promotion.delete",
                         "audit.clear",
                         "notice.send",
-                        "notice.clear"
+                        "notice.clear",
+                        "system.repair_orphaned_users"
                     ],
                     "description": "The type of action performed."
                 },
@@ -375,3 +376,4 @@
         }
     }
 }
+    
