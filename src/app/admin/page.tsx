@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
@@ -1383,7 +1384,6 @@ export default function AdminDashboardPage() {
   }
 
   const isOwner = userRole === 'Owner';
-  const isCoOwner = userRole === 'Co-Owner';
 
   if (!['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole)) {
     return (
@@ -1433,3 +1433,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
