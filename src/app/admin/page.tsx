@@ -1407,11 +1407,11 @@ export default function AdminDashboardPage() {
       </div>
 
       <Tabs defaultValue="user-management" className="w-full">
-        <TabsList className={`grid w-full ${isOwner || isCoOwner ? 'grid-cols-4' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : 'grid-cols-2'}`}>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
           <TabsTrigger value="sponsors">Sponsors</TabsTrigger>
-          {(isOwner || isCoOwner) && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
-          {(isOwner || isCoOwner) && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
+          {isOwner && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
+          {isOwner && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
           <UserManagementTool />
@@ -1419,12 +1419,12 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
-        {(isOwner || isCoOwner) && (
+        {isOwner && (
             <TabsContent value="notices" className="mt-6">
                 <NoticeManagementTool />
             </TabsContent>
         )}
-        {(isOwner || isCoOwner) && (
+        {isOwner && (
             <TabsContent value="audit-logs" className="mt-6">
                 <AuditLogTool />
             </TabsContent>
