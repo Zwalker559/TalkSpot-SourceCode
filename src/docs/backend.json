@@ -1,5 +1,3 @@
-
-
 {
     "entities": {
         "user": {
@@ -259,7 +257,9 @@
                         "promotion.create",
                         "promotion.edit",
                         "promotion.delete",
-                        "audit.clear"
+                        "audit.clear",
+                        "notice.send",
+                        "notice.clear"
                     ],
                     "description": "The type of action performed."
                 },
@@ -282,6 +282,18 @@
                 }
             },
             "required": ["actorUid", "actorDisplayName", "action", "timestamp"]
+        },
+        "globalNotice": {
+            "title": "Global Notice",
+            "description": "A sitewide announcement banner.",
+            "type": "object",
+            "properties": {
+                "message": { "type": "string" },
+                "active": { "type": "boolean" },
+                "updatedAt": { "$ref": "#/entities/timestamp" },
+                "updatedBy": { "type": "string" }
+            },
+            "required": ["message", "active"]
         },
         "timestamp": {
             "title": "Timestamp",
@@ -354,6 +366,12 @@
                 "$ref": "#/entities/auditLog"
             },
             "description": "Stores records of administrative actions."
+        },
+        "/site_config/global_notice": {
+            "schema": {
+                "$ref": "#/entities/globalNotice"
+            },
+            "description": "Stores the current global notice for the site."
         }
     }
 }

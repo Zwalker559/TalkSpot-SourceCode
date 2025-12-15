@@ -1,7 +1,6 @@
-
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 import { format, subDays } from 'date-fns';
-import { createAuditLog, clearAuditLogs, deleteUserFully } from './actions';
+import { createAuditLog, clearAuditLogs, deleteUserFully, sendGlobalNotice, clearGlobalNotice } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -81,6 +80,11 @@ type AuditLog = {
         displayName?: string;
     };
     details?: Record<string, any>;
+};
+
+type GlobalNotice = {
+    message: string;
+    active: boolean;
 };
 
 
@@ -1231,6 +1235,88 @@ function AuditLogTool() {
     );
 }
 
+function NoticeManagementTool() {
+    const { user: currentUser } = useUser();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [notice, setNotice] = useState<GlobalNotice | null>(null);
+    const [message, setMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!firestore) return;
+        const noticeRef = doc(firestore, 'site_config', 'global_notice');
+        const unsubscribe = onSnapshot(noticeRef, (doc) => {
+            if (doc.exists()) {
+                const data = doc.data() as GlobalNotice;
+                setNotice(data);
+                if (data.active) {
+                    setMessage(data.message);
+                } else {
+                    setMessage('');
+                }
+            }
+        });
+        return () => unsubscribe();
+    }, [firestore]);
+    
+    const handleSendNotice = async () => {
+        if (!currentUser) return;
+        setIsLoading(true);
+        try {
+            await sendGlobalNotice({ actorUid: currentUser.uid, message });
+            toast({ title: 'Success', description: 'Global notice has been sent.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleClearNotice = async () => {
+        if (!currentUser) return;
+        setIsLoading(true);
+        try {
+            await clearGlobalNotice({ actorUid: currentUser.uid });
+            toast({ title: 'Success', description: 'Global notice has been cleared.' });
+            setMessage('');
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Global Notice</CardTitle>
+                <CardDescription>Send a message that appears as a banner for all users.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <Textarea
+                    placeholder="Enter your notice message here..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={4}
+                    disabled={isLoading}
+                />
+                <div className="flex justify-between">
+                    <Button onClick={handleSendNotice} disabled={isLoading || !message}>
+                        <Send className="mr-2" /> Send Notice
+                    </Button>
+                    {notice?.active && (
+                        <Button variant="destructive" onClick={handleClearNotice} disabled={isLoading}>
+                            <Trash2 className="mr-2" /> Clear Notice
+                        </Button>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+
 export default function AdminDashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -1277,9 +1363,10 @@ export default function AdminDashboardPage() {
       </div>
 
       <Tabs defaultValue="user-management" className="w-full">
-        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : 'grid-cols-2'}`}>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
           <TabsTrigger value="sponsors">Sponsors</TabsTrigger>
+          {isOwner && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
           {isOwner && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
@@ -1288,6 +1375,11 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
+        {isOwner && (
+            <TabsContent value="notices" className="mt-6">
+                <NoticeManagementTool />
+            </TabsContent>
+        )}
         {isOwner && (
             <TabsContent value="audit-logs" className="mt-6">
                 <AuditLogTool />

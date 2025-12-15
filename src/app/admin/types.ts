@@ -16,7 +16,9 @@ export const CreateAuditLogSchema = z.object({
       'promotion.create',
       'promotion.edit',
       'promotion.delete',
-      'audit.clear'
+      'audit.clear',
+      'notice.send',
+      'notice.clear'
   ]),
   targetInfo: z.object({
     type: z.string(),
@@ -47,4 +49,9 @@ export const ClearAuditLogsSchema = z.object({
 
 export const DeleteUserFullySchema = z.object({
   uidToDelete: z.string(),
+});
+
+export const GlobalNoticeSchema = z.object({
+  actorUid: z.string(),
+  message: z.string().min(1, "Message cannot be empty.").max(500, "Message is too long."),
 });

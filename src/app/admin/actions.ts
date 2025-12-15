@@ -10,6 +10,7 @@ import {
   DisplayNameChangeLogSchema,
   ClearAuditLogsSchema,
   DeleteUserFullySchema,
+  GlobalNoticeSchema,
   type CreateAuditLogInput,
 } from './types';
 
@@ -180,5 +181,80 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
         // If Auth deletion fails, the rest won't run, which is good.
         // If Firestore deletion fails, the user is in a partial state.
         throw new Error(`Failed to fully delete user: ${error.message}`);
+    }
+}
+
+
+// Check if a user is an owner before performing privileged actions
+async function isOwner(uid: string): Promise<{ isOwner: boolean, displayName: string | null }> {
+    const actorDoc = await db.collection('users').doc(uid).get();
+    if (!actorDoc.exists || actorDoc.data()?.role !== 'Owner') {
+        return { isOwner: false, displayName: null };
+    }
+    return { isOwner: true, displayName: actorDoc.data()?.displayName || 'Owner' };
+}
+
+/**
+ * Sends or updates the global notice. Only callable by an Owner.
+ */
+export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>) {
+    const { actorUid, message } = GlobalNoticeSchema.parse(input);
+
+    const { isOwner: isActorOwner, displayName } = await isOwner(actorUid);
+    if (!isActorOwner) {
+        throw new Error('Permission Denied: You must be an Owner to send a global notice.');
+    }
+
+    try {
+        const noticeRef = db.collection('site_config').doc('global_notice');
+        await noticeRef.set({
+            message,
+            active: true,
+            updatedAt: Timestamp.now(),
+            updatedBy: displayName,
+        }, { merge: true });
+
+        await createAuditLog({
+            actorUid,
+            actorDisplayName: displayName!,
+            action: 'notice.send',
+            details: { message }
+        });
+
+        // Revalidate all pages to show the notice immediately
+        revalidatePath('/', 'layout');
+        return { success: true, message: 'Global notice has been sent.' };
+    } catch (error) {
+        console.error('Error sending global notice:', error);
+        throw new Error('Failed to send notice.');
+    }
+}
+
+
+/**
+ * Clears the global notice. Only callable by an Owner.
+ */
+export async function clearGlobalNotice(input: { actorUid: string }) {
+    const { actorUid } = input;
+    const { isOwner: isActorOwner, displayName } = await isOwner(actorUid);
+    if (!isActorOwner) {
+        throw new Error('Permission Denied: You must be an Owner to clear the notice.');
+    }
+
+    try {
+        const noticeRef = db.collection('site_config').doc('global_notice');
+        await noticeRef.set({ active: false }, { merge: true });
+        
+        await createAuditLog({
+            actorUid,
+            actorDisplayName: displayName!,
+            action: 'notice.clear',
+        });
+
+        revalidatePath('/', 'layout');
+        return { success: true, message: 'Global notice has been cleared.' };
+    } catch (error) {
+        console.error('Error clearing global notice:', error);
+        throw new Error('Failed to clear notice.');
     }
 }

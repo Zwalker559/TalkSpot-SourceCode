@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import Link from 'next/link';
@@ -26,7 +24,6 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import {
-  Bell,
   LogOut,
   Menu,
   MessageSquare,
@@ -66,6 +63,10 @@ const presetQuestions = [
   "In what city were you born?",
 ];
 
+type GlobalNotice = {
+    message: string;
+    active: boolean;
+};
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -76,6 +77,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   const [textingId, setTextingId] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [globalNotice, setGlobalNotice] = useState<GlobalNotice | null>(null);
 
   // Onboarding states
   const [isDisplayNameModalOpen, setDisplayNameModalOpen] = useState(false);
@@ -99,8 +101,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user && firestore) {
+      // Listen for global notice
+      const noticeDocRef = doc(firestore, 'site_config', 'global_notice');
+      const unsubscribeNotice = onSnapshot(noticeDocRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().active) {
+              setGlobalNotice(docSnap.data() as GlobalNotice);
+          } else {
+              setGlobalNotice(null);
+          }
+      });
+        
       const userDocRef = doc(firestore, 'users', user.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
         setUserDataLoaded(true);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -143,7 +155,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           console.error("Error listening to user document:", error);
           setUserDataLoaded(true);
       });
-       return () => unsubscribe();
+       return () => {
+         unsubscribeNotice();
+         unsubscribeUser();
+       };
     } else if (!user) {
         setUserDataLoaded(true);
         setShowOnboarding(false);
@@ -274,6 +289,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
       <>
+        {globalNotice && (
+            <div className="bg-destructive/90 text-destructive-foreground text-center p-2 font-bold shadow-lg">
+                {globalNotice.message}
+            </div>
+        )}
         <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] bg-background/80 backdrop-blur-sm">
           <div className="hidden border-r bg-muted/40 md:block">
             <div className="flex h-full max-h-screen flex-col gap-2">
