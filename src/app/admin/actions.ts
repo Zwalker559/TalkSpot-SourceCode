@@ -155,20 +155,29 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
         // 5. Find and delete all conversations the user is a part of
         const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
         const conversationsSnapshot = await conversationsQuery.get();
-
+        
         const deletePromises: Promise<any>[] = [];
         conversationsSnapshot.forEach(convoDoc => {
-            // Delete all messages in the conversation's subcollection
-            const messagesRef = convoDoc.ref.collection('messages');
+            // Delete all messages in the conversation's subcollection and the conversation doc itself
             deletePromises.push(
-                db.recursiveDelete(messagesRef).then(() => {
-                    // After messages are gone, delete the conversation doc itself
-                    batch.delete(convoDoc.ref);
-                })
+                db.recursiveDelete(convoDoc.ref)
             );
         });
+        
+        // 6. Find and delete chat requests involving the user
+        const requestsFromQuery = db.collection('requests').where('from', '==', uidToDelete);
+        const requestsToQuery = db.collection('requests').where('to', '==', uidToDelete);
+        
+        const [requestsFromSnapshot, requestsToSnapshot] = await Promise.all([
+            requestsFromQuery.get(),
+            requestsToQuery.get(),
+        ]);
+        
+        requestsFromSnapshot.forEach(doc => batch.delete(doc.ref));
+        requestsToSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        // Wait for all subcollection deletions to be planned
+
+        // Wait for all recursive deletions to be planned/finished
         await Promise.all(deletePromises);
         
         // Commit all batched writes
@@ -325,5 +334,3 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
         throw new Error('An unexpected error occurred during the repair process.');
     }
 }
-
-    

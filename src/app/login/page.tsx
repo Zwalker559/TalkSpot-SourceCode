@@ -139,6 +139,13 @@ export default function LoginPage() {
           visibility: 'private' // Default to private
         });
         
+        // Create password recovery document
+        const recoveryDocRef = doc(firestore, 'password_recovery', user.uid);
+        batch.set(recoveryDocRef, {
+            uid: user.uid,
+            email: user.email,
+        });
+
         await batch.commit();
 
         // Log the creation event

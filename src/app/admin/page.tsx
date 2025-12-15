@@ -1433,5 +1433,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
