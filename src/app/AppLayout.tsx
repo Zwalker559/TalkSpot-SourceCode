@@ -102,7 +102,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user && firestore) {
-      // Listen for global notice
+      // Listen for global notice - only for authenticated users
       const noticeDocRef = doc(firestore, 'site_config', 'global_notice');
       const unsubscribeNotice = onSnapshot(noticeDocRef, (docSnap) => {
           if (docSnap.exists() && docSnap.data().active) {
@@ -112,10 +112,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
       },
       (error) => {
+        // This will now correctly fire if an unauthenticated user somehow tries to listen
+        console.error("Error listening to global notice:", error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: noticeDocRef.path,
             operation: 'get',
-        } satisfies SecurityRuleContext));
+        }));
       });
         
       const userDocRef = doc(firestore, 'users', user.uid);
@@ -173,6 +175,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (!user) {
         setUserDataLoaded(true);
         setShowOnboarding(false);
+        setGlobalNotice(null); // Clear notice for logged-out users
     }
   }, [user, firestore, isGoogleUser]);
 

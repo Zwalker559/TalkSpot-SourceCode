@@ -1,7 +1,7 @@
 
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench, Info } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -87,6 +87,8 @@ type AuditLog = {
 type GlobalNotice = {
     message: string;
     active: boolean;
+    updatedAt?: any;
+    updatedBy?: string;
 };
 
 
@@ -1301,10 +1303,11 @@ function NoticeManagementTool() {
     const { toast } = useToast();
     const [notice, setNotice] = useState<GlobalNotice | null>(null);
     const [message, setMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (!firestore) return;
+        setIsLoading(true);
         const noticeRef = doc(firestore, 'site_config', 'global_notice');
         const unsubscribe = onSnapshot(noticeRef, (doc) => {
             if (doc.exists()) {
@@ -1316,12 +1319,14 @@ function NoticeManagementTool() {
                     setMessage('');
                 }
             }
+            setIsLoading(false);
         },
         (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: noticeRef.path,
                 operation: 'get',
             } satisfies SecurityRuleContext));
+            setIsLoading(false);
         });
         return () => unsubscribe();
     }, [firestore]);
@@ -1360,16 +1365,33 @@ function NoticeManagementTool() {
                 <CardDescription>Send a message that appears as a banner for all users.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Textarea
-                    placeholder="Enter your notice message here..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    rows={4}
-                    disabled={isLoading}
-                />
-                <div className="flex justify-between">
-                    <Button onClick={handleSendNotice} disabled={isLoading || !message}>
-                        <Send className="mr-2" /> Send Notice
+                 {notice?.active && (
+                    <div className="p-4 bg-muted/50 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                             <h4 className="font-semibold">Current Active Notice</h4>
+                             {notice.updatedBy && notice.updatedAt && (
+                                <p className="text-xs text-muted-foreground">
+                                    Sent by {notice.updatedBy} on {format(notice.updatedAt.toDate(), 'PPP')}
+                                </p>
+                             )}
+                        </div>
+                        <p className="text-sm p-4 bg-background rounded-md">{notice.message}</p>
+                    </div>
+                )}
+                <div className="space-y-2">
+                    <Label htmlFor="notice-message">{notice?.active ? 'Update or Clear Notice' : 'Send a New Notice'}</Label>
+                    <Textarea
+                        id="notice-message"
+                        placeholder="Enter your notice message here..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        rows={4}
+                        disabled={isLoading}
+                    />
+                </div>
+                <div className="flex justify-between items-center">
+                    <Button onClick={handleSendNotice} disabled={isLoading || !message.trim()}>
+                        <Send className="mr-2" /> {notice?.active ? 'Update Notice' : 'Send Notice'}
                     </Button>
                     {notice?.active && (
                         <Button variant="destructive" onClick={handleClearNotice} disabled={isLoading}>
