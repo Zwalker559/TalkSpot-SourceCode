@@ -136,8 +136,10 @@ function MessageBubble({ message, isOwnMessage, onMessageDelete, chatFilters }: 
           </Avatar>
         )}
         <div
-          className={`group relative max-w-xs rounded-lg px-3 py-2 lg:max-w-md ${
-            isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-muted'
+          className={`group relative max-w-xs rounded-lg px-3 py-2 lg:max-w-md animate-in fade-in ${
+            isOwnMessage 
+            ? 'bg-primary text-primary-foreground slide-in-from-right-10' 
+            : 'bg-muted slide-in-from-left-10'
           }`}
         >
           <FilteredMessage
