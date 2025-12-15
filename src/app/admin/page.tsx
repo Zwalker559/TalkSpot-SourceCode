@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
@@ -1409,7 +1410,8 @@ export default function AdminDashboardPage() {
     // Still loading user role, show a loader or nothing
     return null;
   }
-
+  
+  const isPrivileged = userRole === 'Owner' || userRole === 'Co-Owner';
   const isOwner = userRole === 'Owner';
 
   if (!['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole)) {
@@ -1434,10 +1436,10 @@ export default function AdminDashboardPage() {
       </div>
 
       <Tabs defaultValue="user-management" className="w-full">
-        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-4' : isPrivileged ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
           <TabsTrigger value="sponsors">Sponsors</TabsTrigger>
-          {isOwner && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
+          {isPrivileged && <TabsTrigger value="notices">Global Notice</TabsTrigger>}
           {isOwner && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
@@ -1446,7 +1448,7 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
-        {isOwner && (
+        {isPrivileged && (
             <TabsContent value="notices" className="mt-6">
                 <NoticeManagementTool />
             </TabsContent>

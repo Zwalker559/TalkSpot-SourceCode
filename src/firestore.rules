@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -96,8 +97,8 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
-        // Only Owners and Co-Owners can read or write to audit logs.
-        allow read, write: if isOwnerRole() || isCoOwner();
+        // Only Owners can read or write to audit logs.
+        allow read, write: if isOwnerRole();
     }
     
     match /site_config/{docId} {
@@ -108,5 +109,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

@@ -96,8 +96,8 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
     const { actorUid } = ClearAuditLogsSchema.parse(input);
 
     // Security check: Only the Owner can perform this action.
-    const actorDoc = await db.collection('users').doc(actorUid).get();
-    if (!actorDoc.exists || actorDoc.data()?.role !== 'Owner') {
+    const { isPrivileged } = await isPrivilegedUser(actorUid, 'Owner');
+    if (!isPrivileged) {
         throw new Error('Permission Denied: You must be an Owner to clear audit logs.');
     }
 
@@ -214,14 +214,14 @@ async function isPrivilegedUser(uid: string, requiredRole: 'Owner' | 'Co-Owner')
 
 
 /**
- * Sends or updates the global notice. Only callable by an Owner.
+ * Sends or updates the global notice. Only callable by an Owner or Co-Owner.
  */
 export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>) {
     const { actorUid, message } = GlobalNoticeSchema.parse(input);
 
-    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Owner');
+    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
     if (!isPrivileged) {
-        throw new Error('Permission Denied: You must be an Owner to send a global notice.');
+        throw new Error('Permission Denied: You must be an Owner or Co-Owner to send a global notice.');
     }
 
     try {
@@ -251,13 +251,13 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
 
 
 /**
- * Clears the global notice. Only callable by an Owner.
+ * Clears the global notice. Only callable by an Owner or Co-Owner.
  */
 export async function clearGlobalNotice(input: { actorUid: string }) {
     const { actorUid } = input;
-    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Owner');
+    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
     if (!isPrivileged) {
-        throw new Error('Permission Denied: You must be an Owner to clear the notice.');
+        throw new Error('Permission Denied: You must be an Owner or Co-Owner to clear the notice.');
     }
 
     try {
@@ -340,5 +340,3 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
         throw new Error('An unexpected error occurred during the repair process.');
     }
 }
-
-    
