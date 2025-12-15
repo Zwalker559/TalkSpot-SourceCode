@@ -1297,7 +1297,7 @@ function AuditLogTool() {
     );
 }
 
-function NoticeManagementTool() {
+function NoticeManagementTool({ userRole }: { userRole: string | null }) {
     const { user: currentUser } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -1306,7 +1306,11 @@ function NoticeManagementTool() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        if (!firestore) return;
+        if (!firestore || !userRole || !['Owner', 'Co-Owner'].includes(userRole)) {
+            setIsLoading(false);
+            return;
+        };
+        
         setIsLoading(true);
         const noticeRef = doc(firestore, 'site_config', 'global_notice');
         const unsubscribe = onSnapshot(noticeRef, (doc) => {
@@ -1329,7 +1333,7 @@ function NoticeManagementTool() {
             setIsLoading(false);
         });
         return () => unsubscribe();
-    }, [firestore]);
+    }, [firestore, userRole]);
     
     const handleSendNotice = async () => {
         if (!currentUser) return;
@@ -1472,7 +1476,7 @@ export default function AdminDashboardPage() {
         </TabsContent>
         {isPrivileged && (
             <TabsContent value="notices" className="mt-6">
-                <NoticeManagementTool />
+                <NoticeManagementTool userRole={userRole} />
             </TabsContent>
         )}
         {isOwner && (
