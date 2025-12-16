@@ -9,12 +9,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { doc, setDoc, writeBatch, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { Logo } from '@/components/logo';
 import { logUserCreation } from '@/app/admin/actions';
+
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <title>Google</title>
+      <path
+        d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.62 1.62-4.55 1.62-3.87 0-7-3.13-7-7s3.13-7 7-7c2.04 0 3.92.82 5.33 2.15l2.42-2.42C18.14.92 15.48 0 12.48 0 5.88 0 .52 5.36.52 12s5.36 12 11.96 12c3.43 0 6.2-1.17 8.24-3.25 2.13-2.13 2.76-5.3 2.76-8.5v-1.18h-8.5z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 function generateTextingId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -36,7 +53,97 @@ export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      if (!firestore) throw new Error("Firestore not available");
+      if (!user.email) throw new Error("Could not retrieve email from Google sign-in.");
+
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where("email", "==", user.email));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          await signOut(auth);
+          toast({
+            variant: "destructive",
+            title: "Account Already Exists",
+            description: "An account with this email already exists. Please sign in with your original method.",
+            duration: 9000,
+          });
+          setIsLoading(false);
+          router.push('/login');
+          return;
+        }
+
+        const newTextingId = generateTextingId();
+        const displayName = user.displayName || user.email?.split('@')[0] || 'New User';
+        
+        const batch = writeBatch(firestore);
+
+        batch.set(userDocRef, {
+            uid: user.uid,
+            displayName: displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+            textingId: newTextingId,
+            displayNameIsSet: !!user.displayName,
+            textingIdIsSet: false,
+            onboardingComplete: false,
+            role: 'User',
+            status: 'Active',
+            providerData: user.providerData.map(p => ({ providerId: p.providerId })),
+            visibility: 'private'
+        });
+
+        const lookupDocRef = doc(firestore, 'user_lookups', user.uid);
+        batch.set(lookupDocRef, {
+          uid: user.uid,
+          displayName: displayName,
+          textingId: newTextingId,
+          visibility: 'private'
+        });
+        
+        const recoveryDocRef = doc(firestore, 'password_recovery', user.uid);
+        batch.set(recoveryDocRef, {
+            uid: user.uid,
+            email: user.email,
+        });
+
+        await batch.commit();
+
+        await logUserCreation({
+            uid: user.uid,
+            email: user.email,
+            displayName: displayName,
+            provider: 'google.com',
+        });
+      }
+      
+      router.push('/dashboard');
+
+    } catch (error: any) {
+      if (error.code !== 'auth/account-exists-with-different-credential') {
+          toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: error.message,
+          });
+      }
+    } finally {
+       setIsLoading(false);
+    }
+  };
+
+  const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     if (!firestore || !email) {
@@ -57,7 +164,6 @@ export default function SignupPage() {
       
       const batch = writeBatch(firestore);
 
-      // Create user document
       const userDocRef = doc(firestore, "users", user.uid);
       batch.set(userDocRef, {
         uid: user.uid,
@@ -71,19 +177,17 @@ export default function SignupPage() {
         role: 'User',
         status: 'Active',
         providerData: [{ providerId: 'password' }],
-        visibility: 'private' // Default to private
+        visibility: 'private'
       });
       
-      // Create public lookup document
       const lookupDocRef = doc(firestore, 'user_lookups', user.uid);
       batch.set(lookupDocRef, {
         uid: user.uid,
         displayName: displayName,
         textingId: newTextingId,
-        visibility: 'private' // Default to private
+        visibility: 'private'
       });
 
-      // Create password recovery document
       const recoveryDocRef = doc(firestore, 'password_recovery', user.uid);
       batch.set(recoveryDocRef, {
         uid: user.uid,
@@ -92,7 +196,6 @@ export default function SignupPage() {
 
       await batch.commit();
 
-      // Log the creation event
       await logUserCreation({
           uid: user.uid,
           email: user.email,
@@ -128,7 +231,20 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <form onSubmit={handleSignup} className="grid gap-4">
+           <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
+            {isLoading ? 'Please wait...' : <> <GoogleIcon className="mr-2 h-4 w-4" /> Sign up with Google </>}
+          </Button>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with
+              </span>
+            </div>
+          </div>
+          <form onSubmit={handleEmailSignup} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
