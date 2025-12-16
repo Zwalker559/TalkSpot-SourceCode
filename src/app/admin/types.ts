@@ -4,7 +4,6 @@ export const CreateAuditLogSchema = z.object({
   actorUid: z.string(),
   actorDisplayName: z.string(),
   action: z.enum([
-      'user.create',
       'user.edit.display_name',
       'user.edit.display_name_self',
       'user.edit.texting_id',
@@ -30,13 +29,6 @@ export const CreateAuditLogSchema = z.object({
 });
 
 export type CreateAuditLogInput = z.infer<typeof CreateAuditLogSchema>;
-
-export const UserCreationLogSchema = z.object({
-  uid: z.string(),
-  email: z.string().email(),
-  displayName: z.string(),
-  provider: z.string(),
-});
 
 export const DisplayNameChangeLogSchema = z.object({
   uid: z.string(),

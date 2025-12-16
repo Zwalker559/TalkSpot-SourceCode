@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { Logo } from '@/components/logo';
 import { useAuth, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { logUserCreation } from '@/app/admin/actions';
+import { logUserCreation } from '@/app/auth/actions';
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (

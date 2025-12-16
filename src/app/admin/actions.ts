@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import {
   CreateAuditLogSchema,
-  UserCreationLogSchema,
   DisplayNameChangeLogSchema,
   ClearAuditLogsSchema,
   DeleteUserFullySchema,
@@ -15,7 +14,6 @@ import {
   RepairOrphanedUsersSchema,
   type CreateAuditLogInput,
 } from './types';
-import { collection, addDoc } from 'firebase/firestore';
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
@@ -57,26 +55,6 @@ export async function createAuditLog(input: CreateAuditLogInput) {
   }
 }
 
-/**
- * Logs the creation of a new user.
- */
-export async function logUserCreation(input: z.infer<typeof UserCreationLogSchema>) {
-  try {
-    const { uid, email, displayName, provider } = UserCreationLogSchema.parse(input);
-    await createAuditLog({
-      actorUid: uid,
-      actorDisplayName: displayName,
-      action: 'user.create',
-      targetInfo: { type: 'user', uid: uid, displayName: displayName },
-      details: { email, provider }
-    });
-    return { success: true };
-  } catch (error) {
-    console.error('Error logging user creation:', error);
-    // Fail silently on the client, but log error on the server
-    return { success: false };
-  }
-}
 
 /**
  * Logs a user changing their own display name.

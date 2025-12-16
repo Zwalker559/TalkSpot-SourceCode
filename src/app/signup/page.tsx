@@ -14,7 +14,7 @@ import { doc, setDoc, writeBatch, getDoc, collection, query, where, getDocs } fr
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { Logo } from '@/components/logo';
-import { logUserCreation } from '@/app/admin/actions';
+import { logUserCreation } from '@/app/auth/actions';
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
