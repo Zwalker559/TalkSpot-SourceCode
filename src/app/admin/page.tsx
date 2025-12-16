@@ -69,6 +69,7 @@ type Promotion = {
   displayWeight: number;
   location: 'header' | 'sidebar' | 'both';
   imageFit?: 'cover' | 'contain';
+  createdAt?: any;
 };
 
 type AuditLog = {
@@ -713,10 +714,6 @@ function SponsorManagementTool() {
                     action: 'promotion.create',
                     details: promoDataToSave
                 });
-                await addDoc(collection(firestore, 'Sponsorships'), {
-                    ...promoDataToSave,
-                    createdAt: serverTimestamp()
-                });
                 toast({ title: "Promotion Added" });
             } else {
                 const docRef = doc(firestore, 'Sponsorships', currentPromo.id!);
@@ -1058,7 +1055,7 @@ function AuditLogTool() {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch audit logs.' });
             setLoading(false);
             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: logsQuery.path,
+                path: 'audit_logs',
                 operation: 'list',
             } satisfies SecurityRuleContext));
         });
@@ -1475,12 +1472,16 @@ export default function AdminDashboardPage() {
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
         </TabsContent>
-        <TabsContent value="notices" className="mt-6">
-            {isPrivileged && <NoticeManagementTool userRole={userRole} />}
-        </TabsContent>
-        <TabsContent value="audit-logs" className="mt-6">
-            {isOwner && <AuditLogTool />}
-        </TabsContent>
+        {isPrivileged && (
+          <TabsContent value="notices" className="mt-6">
+            <NoticeManagementTool userRole={userRole} />
+          </TabsContent>
+        )}
+        {isOwner && (
+          <TabsContent value="audit-logs" className="mt-6">
+            <AuditLogTool />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

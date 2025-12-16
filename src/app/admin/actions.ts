@@ -15,6 +15,7 @@ import {
   RepairOrphanedUsersSchema,
   type CreateAuditLogInput,
 } from './types';
+import { collection, addDoc } from 'firebase/firestore';
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
@@ -29,10 +30,20 @@ const db = getFirestore();
 export async function createAuditLog(input: CreateAuditLogInput) {
   try {
     const validatedInput = CreateAuditLogSchema.parse(input);
+
+    // If creating a promotion, add it to Firestore here and get the ID
+    if (validatedInput.action === 'promotion.create' && validatedInput.details) {
+        const promoData = { ...validatedInput.details, createdAt: Timestamp.now() };
+        const promoRef = await db.collection('Sponsorships').add(promoData);
+        // We can add the new ID to the details if we want to log it
+        validatedInput.details.newPromotionId = promoRef.id;
+    }
+
     await db.collection('audit_logs').add({
       ...validatedInput,
       timestamp: Timestamp.now(),
     });
+
     // Revalidate the admin page to show the new log instantly
     revalidatePath('/admin');
     return { success: true };
