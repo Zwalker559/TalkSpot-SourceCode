@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+.yarn/install-state.gz
 
 # testing
 /coverage
@@ -11,6 +12,9 @@
 # next.js
 /.next/
 /out/
+
+# production
+/build
 
 # misc
 .DS_Store
@@ -32,12 +36,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Firebase
-# Created by `firebase init`
-.firebase
-*-debug.log
-firebase-debug.log
-# Created by `firebase serve`
-.firebaserc
-# Add this to prevent secrets from being checked in
+# firebase
 firebase-admin-key.json

@@ -1,10 +1,11 @@
+
 import * as admin from 'firebase-admin';
 import 'dotenv/config';
 
 if (!admin.apps.length) {
   try {
-    // When GOOGLE_APPLICATION_CREDENTIALS is set, the SDK will automatically use them
-    // providing a projectId here is good practice and helps stabilize initialization.
+    // When GOOGLE_APPLICATION_CREDENTIALS is set via .env, the SDK will automatically use it.
+    // Providing a projectId here is good practice and helps stabilize initialization.
     admin.initializeApp({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
