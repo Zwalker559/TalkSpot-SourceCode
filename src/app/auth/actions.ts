@@ -19,64 +19,35 @@ const UserCreationLogSchema = z.object({
   provider: z.string(),
 });
 
-const CreateAuditLogSchema = z.object({
+// This is a self-contained schema just for the user creation audit log.
+const AuthAuditLogSchema = z.object({
   actorUid: z.string(),
   actorDisplayName: z.string(),
-  action: z.enum([
-      'user.edit.display_name',
-      'user.edit.display_name_self',
-      'user.edit.texting_id',
-      'user.edit.role',
-      'user.edit.status.suspended',
-      'user.edit.status.activated',
-      'user.edit.password_reset',
-      'user.delete',
-      'promotion.create',
-      'promotion.edit',
-      'promotion.delete',
-      'audit.clear',
-      'notice.send',
-      'notice.clear',
-      'system.repair_orphaned_users'
-  ]),
+  action: z.literal('user.create'),
   targetInfo: z.object({
-    type: z.string(),
-    uid: z.string().optional(),
-    displayName: z.string().optional(),
-  }).optional(),
+    type: z.literal('user'),
+    uid: z.string(),
+    displayName: z.string(),
+  }),
   details: z.record(z.any()).optional(),
 });
-
-type CreateAuditLogInput = z.infer<typeof CreateAuditLogSchema>;
+type AuthAuditLogInput = z.infer<typeof AuthAuditLogSchema>;
 
 /**
- * Creates a new audit log entry in Firestore.
- * This is a secure server-side action.
+ * Creates a new audit log entry in Firestore, specifically for auth events.
+ * This is a secure server-side action, isolated from other admin actions.
  */
-async function createAuditLog(input: CreateAuditLogInput | { action: 'user.create', [key: string]: any }) {
+async function createAuthAuditLog(input: AuthAuditLogInput) {
   try {
-     // If creating a promotion, add it to Firestore here and get the ID
-    if (input.action === 'promotion.create' && input.details) {
-        const promoData = { ...input.details, createdAt: Timestamp.now() };
-        const promoRef = await db.collection('Sponsorships').add(promoData);
-        // We can add the new ID to the details if we want to log it
-        input.details.newPromotionId = promoRef.id;
-    }
-
+    const validatedInput = AuthAuditLogSchema.parse(input);
     await db.collection('audit_logs').add({
-      ...input,
+      ...validatedInput,
       timestamp: Timestamp.now(),
     });
-
-    // Revalidate the admin page to show the new log instantly
-    revalidatePath('/admin');
-    return { success: true };
+    // We don't need to revalidate paths here as it doesn't affect the admin UI immediately.
   } catch (error) {
-    console.error('Error creating audit log:', error);
-    if (error instanceof z.ZodError) {
-      throw new Error(`Invalid audit log input: ${error.message}`);
-    }
-    throw new Error('Failed to create audit log entry.');
+    console.error('Error creating auth audit log:', error);
+    // This action should fail silently from the client's perspective.
   }
 }
 
@@ -87,10 +58,10 @@ async function createAuditLog(input: CreateAuditLogInput | { action: 'user.creat
 export async function logUserCreation(input: z.infer<typeof UserCreationLogSchema>) {
   try {
     const { uid, email, displayName, provider } = UserCreationLogSchema.parse(input);
-    await createAuditLog({
+    await createAuthAuditLog({
       actorUid: uid,
       actorDisplayName: displayName,
-      action: 'user.create' as any, // Cast to any to satisfy base schema
+      action: 'user.create',
       targetInfo: { type: 'user', uid: uid, displayName: displayName },
       details: { email, provider }
     });

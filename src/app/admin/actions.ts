@@ -103,6 +103,14 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
             batch.delete(doc.ref);
         });
         await batch.commit();
+        
+        await createAuditLog({
+            actorUid: actorUid,
+            actorDisplayName: (await admin.auth().getUser(actorUid)).displayName || 'Owner',
+            action: 'audit.clear',
+            targetInfo: { type: 'system' }
+        });
+
 
         // If there are more logs, this function can be called again.
         // For simplicity, we'll just clear up to 500 at a time.
@@ -123,10 +131,20 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
  * This is a highly destructive server-side action.
  */
 export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchema>) {
-    const { uidToDelete } = DeleteUserFullySchema.parse(input);
+    const { uidToDelete, actorUid } = DeleteUserFullySchema.parse(input);
     const batch = db.batch();
 
     try {
+        const actor = await admin.auth().getUser(actorUid);
+        const userToDelete = await admin.auth().getUser(uidToDelete);
+
+        await createAuditLog({
+            actorUid: actor.uid,
+            actorDisplayName: actor.displayName || 'Admin',
+            action: 'user.delete',
+            targetInfo: { type: 'user', uid: userToDelete.uid, displayName: userToDelete.displayName || userToDelete.email }
+        });
+
         // 1. Delete user from Firebase Authentication
         await admin.auth().deleteUser(uidToDelete);
 

@@ -42,6 +42,7 @@ export const ClearAuditLogsSchema = z.object({
 
 export const DeleteUserFullySchema = z.object({
   uidToDelete: z.string(),
+  actorUid: z.string(),
 });
 
 export const GlobalNoticeSchema = z.object({
