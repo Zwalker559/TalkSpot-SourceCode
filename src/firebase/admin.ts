@@ -6,39 +6,24 @@ let adminApp: admin.app.App | undefined;
 
 function initializeAdminApp() {
   // If the app is already initialized, return it.
-  if (adminApp) {
-    return adminApp;
+  if (admin.apps.length > 0) {
+    return admin.app();
   }
 
   try {
-    // Vercel Environment: Use the JSON string from the environment variable.
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-      const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-      console.log('Initializing Firebase Admin SDK with Vercel environment variable...');
-      adminApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      });
-      return adminApp;
-    }
-
-    // Local Development Environment: Use the file path from .env.
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      console.log('Initializing Firebase Admin SDK with local service account file...');
-      adminApp = admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      });
-      return adminApp;
-    }
-    
-    throw new Error('Firebase Admin SDK credentials are not configured. Please set either GOOGLE_APPLICATION_CREDENTIALS_JSON (for Vercel) or GOOGLE_APPLICATION_CREDENTIALS (for local development).');
-
+    // This is the standard and recommended way.
+    // On Vercel, it automatically uses the GOOGLE_APPLICATION_CREDENTIALS_JSON env var.
+    // Locally, it automatically uses the GOOGLE_APPLICATION_CREDENTIALS env var from .env.
+    adminApp = admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
+    console.log('Firebase Admin SDK initialized successfully.');
+    return adminApp;
   } catch (error: any) {
-    console.error('Firebase admin initialization error:', error.stack);
-    // Return null or re-throw to indicate failure.
-    // For this app, we'll rethrow so the server action fails clearly.
-    throw new Error('Could not initialize Firebase Admin SDK.');
+    console.error('CRITICAL: Firebase admin initialization error:', error.stack);
+    // This will cause server actions to fail loudly if initialization fails.
+    throw new Error('Could not initialize Firebase Admin SDK. Check server logs for details.');
   }
 }
 
@@ -51,8 +36,6 @@ export function getAdminApp() {
   return adminApp;
 }
 
-// Export a pre-initialized instance for convenience in many files.
-// Note: Direct import of this might behave differently in serverless environments,
-// which is why getAdminApp() is the more robust approach.
+// Export a pre-initialized instance for convenience.
 const adminInstance = initializeAdminApp();
 export default adminInstance;

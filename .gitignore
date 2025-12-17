@@ -26,8 +26,6 @@ yarn-debug.log*
 yarn-error.log*
 firebase-debug.log*
   
-# local env files
-# .env.local - NO LONGER IGNORING .env
 
 # vercel
 .vercel
