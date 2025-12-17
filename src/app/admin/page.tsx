@@ -326,7 +326,7 @@ function UserManagementTool() {
     });
   
     try {
-        await deleteUserFully({ uidToDelete: userToRemove.uid });
+        await deleteUserFully({ uidToDelete: userToRemove.uid, actorUid: currentUser.uid });
         toast({ title: 'User Fully Deleted', description: `${userToRemove.displayName} has been removed from Auth and Firestore.` });
     } catch (serverError: any) {
         console.error("Error removing user:", serverError)
@@ -1101,7 +1101,9 @@ function AuditLogTool() {
                 case '30d': startDate = subDays(new Date(), 30); break;
                 default: startDate = new Date(0); 
             }
-            filteredLogs = filteredLogs.filter(log => log.timestamp.toDate() >= startDate);
+            if (filteredLogs) {
+                filteredLogs = filteredLogs.filter(log => log.timestamp.toDate() >= startDate);
+            }
         }
 
         const dataStr = JSON.stringify(filteredLogs, null, 2);

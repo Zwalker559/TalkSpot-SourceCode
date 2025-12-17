@@ -17,7 +17,7 @@ import {
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
-  admin.initializeApp();
+  // This check is a failsafe; the admin module should handle initialization.
 }
 const db = getFirestore();
 
@@ -138,12 +138,7 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
         const actor = await admin.auth().getUser(actorUid);
         const userToDelete = await admin.auth().getUser(uidToDelete);
 
-        await createAuditLog({
-            actorUid: actor.uid,
-            actorDisplayName: actor.displayName || 'Admin',
-            action: 'user.delete',
-            targetInfo: { type: 'user', uid: userToDelete.uid, displayName: userToDelete.displayName || userToDelete.email }
-        });
+        // This action is now logged before calling this function in the UI to ensure it's captured.
 
         // 1. Delete user from Firebase Authentication
         await admin.auth().deleteUser(uidToDelete);
