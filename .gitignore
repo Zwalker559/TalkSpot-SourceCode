@@ -39,5 +39,4 @@ next-env.d.ts
 
 # studio
 .studio/
-firebase-admin-key.json
 ts-v3-178ca-firebase-adminsdk-fbsvc-cb0fd2e7fe.json
