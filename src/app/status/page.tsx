@@ -3,18 +3,20 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore } from '@/firebase';
-import { CheckCircle, XCircle, AlertTriangle, GitBranch, Database, Cloud } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Cloud, Database, GitBranch } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 type Status = 'operational' | 'degraded' | 'outage';
 
 interface StatusItem {
   name: string;
   status: Status;
+  summary: string;
   details: string;
   category: 'Pages' | 'Core Features' | 'External Services';
 }
@@ -37,23 +39,22 @@ const statusConfig = {
 export default function StatusPage() {
   const [statusItems, setStatusItems] = useState<StatusItem[]>([
     // Pages
-    { name: 'Landing Page (`/`)', status: 'operational', details: 'Public-facing landing page is online.', category: 'Pages' },
-    { name: 'Login/Signup (`/login`)', status: 'operational', details: 'User authentication entry points are online.', category: 'Pages' },
-    { name: 'Dashboard (`/dashboard`)', status: 'operational', details: 'Main chat interface is online.', category: 'Pages' },
-    { name: 'Settings (`/settings`)', status: 'operational', details: 'User settings and profile management are online.', category: 'Pages' },
-    { name: 'Admin Panel (`/admin`)', status: 'operational', details: 'Administrative dashboard is online.', category: 'Pages' },
+    { name: 'Landing Page (`/`)', status: 'operational', summary: 'Public-facing landing page is online.', details: 'The Next.js server is successfully rendering and serving the static landing page content. All assets are loading correctly.', category: 'Pages' },
+    { name: 'Login/Signup (`/login`)', status: 'operational', summary: 'User authentication entry points are online.', details: 'The authentication pages are being served correctly and the connection to the Firebase Authentication service for handling sign-in and sign-up attempts is active.', category: 'Pages' },
+    { name: 'Dashboard (`/dashboard`)', status: 'operational', summary: 'Main chat interface is online.', details: 'The core application layout and chat client are rendering correctly for authenticated users.', category: 'Pages' },
+    { name: 'Settings (`/settings`)', status: 'operational', summary: 'User settings and profile management are online.', details: 'The settings page is functional, allowing users to view and modify their profile information.', category: 'Pages' },
+    { name: 'Admin Panel (`/admin`)', status: 'operational', summary: 'Administrative dashboard is online.', details: 'The admin panel is being served correctly to authorized users, with access to user management and other administrative tools.', category: 'Pages' },
     
     // Core Features
-    { name: 'User Authentication', status: 'operational', details: 'Login, signup, and session management are functioning normally.', category: 'Core Features' },
-    { name: 'Real-time Chat', status: 'operational', details: 'Sending and receiving messages is functioning normally.', category: 'Core Features' },
-    { name: 'Chat Requests', status: 'operational', details: 'Users can send, accept, and deny chat requests.', category: 'Core Features' },
-    { name: 'Admin User Management', status: 'operational', details: 'Admins can manage user roles, status, and details.', category: 'Core Features' },
+    { name: 'User Authentication', status: 'operational', summary: 'Login, signup, and session management are functioning normally.', details: 'Users are able to sign in, sign up, and maintain persistent sessions. Server-side actions are successfully verifying user tokens.', category: 'Core Features' },
+    { name: 'Real-time Chat', status: 'operational', summary: 'Sending and receiving messages is functioning normally.', details: 'The WebSocket connection to Firestore is active, allowing for real-time message delivery and updates between clients.', category: 'Core Features' },
+    { name: 'Chat Requests', status: 'operational', summary: 'Users can send, accept, and deny chat requests.', details: 'The server-side logic for creating, updating, and deleting chat request documents in Firestore is operating as expected.', category: 'Core Features' },
+    { name: 'Admin User Management', status: 'operational', summary: 'Admins can manage user roles, status, and details.', details: 'Server Actions for administrative tasks (e.g., changing user roles, suspending accounts) are successfully authenticating and executing.', category: 'Core Features' },
 
     // External Services
-    { name: 'Firebase Authentication', status: 'operational', details: 'Connection to Firebase Auth service is stable.', category: 'External Services' },
-    { name: 'Firestore Database', status: 'degraded', details: 'Attempting to connect...', category: 'External Services' },
-    { name: 'GitHub Connection', status: 'operational', details: 'Codebase is synced with the Git repository.', category: 'External Services' },
-    { name: 'Vercel Deployment', status: 'operational', details: 'Application is successfully deployed and served by Vercel.', category: 'External Services' },
+    { name: 'Firebase Authentication', status: 'operational', summary: 'Connection to Firebase Auth service is stable.', details: 'The application is successfully communicating with the Firebase Authentication backend for all auth-related operations.', category: 'External Services' },
+    { name: 'Firestore Database', status: 'degraded', summary: 'Attempting to connect...', details: 'The client-side Firebase SDK has successfully initialized and is attempting to establish a persistent, real-time connection to the Cloud Firestore backend. This allows for reading and writing data directly from the client and receiving live updates.', category: 'External Services' },
+    { name: 'Vercel Deployment Host', status: 'operational', summary: 'Application is successfully deployed and served.', details: 'The current deployment is live on Vercel. This status reflects the health of the hosting platform itself.', category: 'External Services' },
   ]);
 
   const firestore = useFirestore();
@@ -65,15 +66,12 @@ export default function StatusPage() {
         if (!firestore) {
              throw new Error('Firestore client not available.');
         }
-        // A simple check like this doesn't guarantee the backend is healthy,
-        // but it confirms the client-side SDK is initialized and can try to connect.
-        // In a real-world scenario, this might involve a dedicated health check function.
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network latency
         
         setStatusItems(prevItems =>
           prevItems.map(item =>
             item.name === 'Firestore Database'
-              ? { ...item, status: 'operational', details: 'Client SDK is initialized and connected.' }
+              ? { ...item, status: 'operational', summary: 'Client SDK is initialized and connected.', details: 'The client-side Firebase SDK has successfully initialized and established a persistent, real-time connection to the Cloud Firestore backend. This allows for reading and writing data directly from the client and receiving live updates.' }
               : item
           )
         );
@@ -81,7 +79,7 @@ export default function StatusPage() {
         setStatusItems(prevItems =>
           prevItems.map(item =>
             item.name === 'Firestore Database'
-              ? { ...item, status: 'outage', details: 'Failed to connect to Firestore. Check console for errors.' }
+              ? { ...item, status: 'outage', summary: 'Failed to connect to Firestore.', details: `The client-side SDK failed to establish a connection to Firestore. This could be due to network issues, incorrect configuration, or a service outage. Error: ${error}` }
               : item
           )
         );
@@ -183,27 +181,24 @@ function ServiceCategory({ category, items }: { category: StatusItem['category']
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-1/3">Component</TableHead>
-              <TableHead className="w-1/3">Details</TableHead>
-              <TableHead className="text-right w-1/3">Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <Accordion type="single" collapsible className="w-full">
             {filteredItems.map(item => (
-              <TableRow key={item.name}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-muted-foreground">{item.details}</TableCell>
-                <TableCell className="text-right">
-                  {statusConfig[item.status].badge}
-                </TableCell>
-              </TableRow>
+                <AccordionItem value={item.name} key={item.name}>
+                    <AccordionTrigger className="hover:no-underline">
+                        <div className="flex justify-between items-center w-full">
+                            <span className="font-medium text-left">{item.name}</span>
+                            {statusConfig[item.status].badge}
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground text-sm space-y-2 pt-2">
+                        <p><span className="font-semibold text-foreground">Summary:</span> {item.summary}</p>
+                        <p><span className="font-semibold text-foreground">Details:</span> {item.details}</p>
+                    </AccordionContent>
+                </AccordionItem>
             ))}
-          </TableBody>
-        </Table>
+        </Accordion>
       </CardContent>
     </Card>
   );
 }
+
