@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench, Info } from 'lucide-react';
@@ -43,6 +42,7 @@ import Image from 'next/image';
 import { format, subDays } from 'date-fns';
 import { createAuditLog, clearAuditLogs, deleteUserFully, sendGlobalNotice, clearGlobalNotice, repairOrphanedUsers } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 type UserProfile = {
@@ -104,13 +104,11 @@ const ROLE_HIERARCHY: { [key: string]: number } = {
 };
 
 
-function UserManagementTool() {
-  const { user: currentUser } = useUser();
+function UserManagementTool({ currentUserRole, currentUser }: { currentUserRole: string, currentUser: any }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   // Dialog states
   const [isRemoveDialogOpen, setRemoveDialogOpen] = useState(false);
@@ -146,7 +144,7 @@ function UserManagementTool() {
           role: data.role || 'User',
           status: data.status || 'Active',
           suspensionReason: data.suspensionReason || '',
-          textingId: data.textingId,
+          textingId: data.textingId || 'N/A',
         });
       });
       setUsers(userList);
@@ -163,39 +161,21 @@ function UserManagementTool() {
     return () => unsubscribe();
   }, [firestore]);
 
-  // Get current user's role to determine permissions
-    useEffect(() => {
-        if (currentUser && firestore) {
-            const userDocRef = doc(firestore, 'users', currentUser.uid);
-            const unsubscribe = onSnapshot(userDocRef, (doc) => {
-                if (doc.exists()) {
-                    setCurrentUserRole(doc.data().role);
-                }
-            }, (error) => {
-                 console.error("Error listening to current user role:", error);
-                 errorEmitter.emit('permission-error', new FirestorePermissionError({
-                    path: userDocRef.path,
-                    operation: 'get',
-                } satisfies SecurityRuleContext));
-            });
-            return () => unsubscribe();
-        }
-    }, [currentUser, firestore]);
 
  const canManage = (targetUser: UserProfile) => {
     if (!currentUserRole || !targetUser.role || !currentUser || currentUser.uid === targetUser.uid) {
         return false;
     }
-    const currentUserLevel = ROLE_HIERARCHY[currentUserRole];
-    const targetUserLevel = ROLE_HIERARCHY[targetUser.role];
+    const currentUserLevel = ROLE_HIERARCHY[currentUserRole] || 0;
+    const targetUserLevel = ROLE_HIERARCHY[targetUser.role] || 0;
     
     return currentUserLevel > targetUserLevel;
   };
 
   const canChangeRoleTo = (targetRole: string) => {
       if (!currentUserRole) return false;
-      const currentUserLevel = ROLE_HIERARCHY[currentUserRole];
-      const targetRoleLevel = ROLE_HIERARCHY[targetRole];
+      const currentUserLevel = ROLE_HIERARCHY[currentUserRole] || 0;
+      const targetRoleLevel = ROLE_HIERARCHY[targetRole] || 0;
 
       // Owner and Co-Owner can't be assigned from the UI
       if (['Owner', 'Co-Owner'].includes(targetRole) && currentUserRole !== 'Owner') {
@@ -357,6 +337,33 @@ function UserManagementTool() {
   const canEditPassword = currentUserRole && ['Owner', 'Co-Owner'].includes(currentUserRole);
   const canRepair = currentUserRole && ['Owner', 'Co-Owner'].includes(currentUserRole);
 
+  if (loading) {
+    return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-8 w-1/3" />
+                <Skeleton className="h-4 w-2/3 mt-2" />
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-10 w-10 rounded-full" />
+                                <div>
+                                    <Skeleton className="h-4 w-24" />
+                                    <Skeleton className="h-3 w-32 mt-1" />
+                                </div>
+                            </div>
+                            <Skeleton className="h-8 w-20" />
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    )
+  }
+
   return (
     <>
     <Card>
@@ -387,18 +394,14 @@ function UserManagementTool() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-                <TableRow>
-                    <TableCell colSpan={4} className="text-center">Loading users...</TableCell>
-                </TableRow>
-            ) : (
+            {users.length > 0 ? (
                 users.map((user) => (
                 <TableRow key={user.uid}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarImage src={user.photoURL} />
-                        <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
                       </Avatar>
                       <div className="font-medium">
                         {user.displayName}
@@ -440,6 +443,10 @@ function UserManagementTool() {
                   </TableCell>
                 </TableRow>
               ))
+            ) : (
+                <TableRow>
+                    <TableCell colSpan={4} className="text-center">No users found.</TableCell>
+                </TableRow>
             )}
           </TableBody>
         </Table>
@@ -594,6 +601,7 @@ function SponsorManagementTool() {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
     const [currentPromo, setCurrentPromo] = useState<Partial<Promotion> | null>(null);
     const [isPreviewOpen, setPreviewOpen] = useState(false);
@@ -615,7 +623,7 @@ function SponsorManagementTool() {
 
     useEffect(() => {
         if (!firestore) return;
-
+        setLoading(true);
         const promoColRef = collection(firestore, 'Sponsorships');
         const unsubscribe = onSnapshot(promoColRef, async (snapshot) => {
             let promoList: Promotion[] = snapshot.docs.map(doc => ({
@@ -638,12 +646,14 @@ function SponsorManagementTool() {
                 if (b.id === 'fallback') return -1;
                 return b.displayWeight - a.displayWeight;
             }));
+            setLoading(false);
         }, (err) => {
             console.error("Error listening to Sponsorships:", err);
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: promoColRef.path,
                 operation: 'list',
             } satisfies SecurityRuleContext));
+            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -765,6 +775,28 @@ function SponsorManagementTool() {
         if (currentPromo) {
              setCurrentPromo({ ...currentPromo, [field]: value });
         }
+    }
+
+    if (loading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-2/3 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                                <Skeleton className="h-4 w-1/4" />
+                                <Skeleton className="h-4 w-1/4" />
+                                <Skeleton className="h-4 w-1/4" />
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        )
     }
 
     return (
@@ -1035,19 +1067,21 @@ function AuditLogTool() {
             const fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
             setLogs(fetchedLogs);
             
-            const uniqueUsers = new Map<string, string>();
-            const uniqueActions = new Set<string>();
-            fetchedLogs.forEach(log => {
-                if (log.actorUid && !uniqueUsers.has(log.actorUid)) {
-                    uniqueUsers.set(log.actorUid, log.actorDisplayName);
-                }
-                if (log.targetInfo?.uid && !uniqueUsers.has(log.targetInfo.uid)) {
-                     uniqueUsers.set(log.targetInfo.uid, log.targetInfo.displayName || 'Unknown');
-                }
-                uniqueActions.add(log.action);
-            });
-            setAllUsers(Array.from(uniqueUsers, ([id, name]) => ({ id, name })).sort((a,b) => a.name.localeCompare(b.name)));
-            setAllActions(Array.from(uniqueActions).sort());
+            if (fetchedLogs.length > 0) {
+                const uniqueUsers = new Map<string, string>();
+                const uniqueActions = new Set<string>();
+                fetchedLogs.forEach(log => {
+                    if (log.actorUid && !uniqueUsers.has(log.actorUid)) {
+                        uniqueUsers.set(log.actorUid, log.actorDisplayName);
+                    }
+                    if (log.targetInfo?.uid && !uniqueUsers.has(log.targetInfo.uid)) {
+                         uniqueUsers.set(log.targetInfo.uid, log.targetInfo.displayName || 'Unknown');
+                    }
+                    uniqueActions.add(log.action);
+                });
+                setAllUsers(Array.from(uniqueUsers, ([id, name]) => ({ id, name })).sort((a,b) => a.name.localeCompare(b.name)));
+                setAllActions(Array.from(uniqueActions).sort());
+            }
 
             setLoading(false);
         }, (error) => {
@@ -1101,9 +1135,7 @@ function AuditLogTool() {
                 case '30d': startDate = subDays(new Date(), 30); break;
                 default: startDate = new Date(0); 
             }
-            if (filteredLogs) {
-                filteredLogs = filteredLogs.filter(log => log.timestamp.toDate() >= startDate);
-            }
+            filteredLogs = filteredLogs.filter(log => log.timestamp?.toDate() >= startDate);
         }
 
         const dataStr = JSON.stringify(filteredLogs, null, 2);
@@ -1135,6 +1167,22 @@ function AuditLogTool() {
         )
     }
 
+    if (loading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-2/3 mt-2" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                     {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                </CardContent>
+            </Card>
+        )
+    }
+
     return (
         <>
             <Card>
@@ -1149,9 +1197,7 @@ function AuditLogTool() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {loading ? (
-                        <p>Loading logs...</p>
-                    ) : logs.length === 0 ? (
+                    {logs.length === 0 ? (
                         <p className="text-center text-muted-foreground py-8">No audit logs found.</p>
                     ) : (
                         <Accordion type="single" collapsible className="w-full">
@@ -1167,7 +1213,7 @@ function AuditLogTool() {
                                                 <Badge variant="outline">{log.action}</Badge>
                                              </div>
                                             <div className="text-muted-foreground text-xs w-1/4 text-right">
-                                                {format(log.timestamp.toDate(), 'PPP p')}
+                                                {log.timestamp ? format(log.timestamp.toDate(), 'PPP p') : 'No date'}
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -1223,7 +1269,7 @@ function AuditLogTool() {
                                 <Checkbox id="filter-user-cat" checked={filterUsers} onCheckedChange={(c) => setFilterUsers(c as boolean)} />
                                 <Label htmlFor="filter-user-cat" className="font-medium">Filter by User</Label>
                             </div>
-                            {filterUsers && (
+                            {filterUsers && allUsers.length > 0 && (
                                 <ScrollArea className="h-32 w-full rounded-md border p-2 ml-6">
                                     {allUsers.map(user => (
                                         <div key={user.id} className="flex items-center gap-2 mb-1">
@@ -1247,7 +1293,7 @@ function AuditLogTool() {
                                 <Checkbox id="filter-action-cat" checked={filterActions} onCheckedChange={(c) => setFilterActions(c as boolean)} />
                                 <Label htmlFor="filter-action-cat" className="font-medium">Filter by Action</Label>
                             </div>
-                            {filterActions && (
+                            {filterActions && allActions.length > 0 && (
                                 <ScrollArea className="h-32 w-full rounded-md border p-2 ml-6">
                                     {allActions.map(action => (
                                         <div key={action} className="flex items-center gap-2 mb-1">
@@ -1413,34 +1459,50 @@ export default function AdminDashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (user && firestore) {
       const userDocRef = doc(firestore, 'users', user.uid);
       const unsubscribe = onSnapshot(userDocRef, (doc) => {
         if (doc.exists()) {
-          setUserRole(doc.data().role);
+          setUserRole(doc.data().role || 'User');
+        } else {
+            setUserRole('User'); // Default to user if doc doesn't exist
         }
+        setIsLoading(false);
       },
       (error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: userDocRef.path,
               operation: 'get',
           } satisfies SecurityRuleContext));
+          setIsLoading(false);
       });
       return () => unsubscribe();
+    } else if (!user) {
+        setIsLoading(false);
     }
   }, [user, firestore]);
 
-  if (!userRole) {
-    // Still loading user role, show a loader or nothing
-    return null;
+  if (isLoading) {
+    return (
+        <div className="space-y-6">
+             <div className="flex flex-col space-y-2">
+                <Skeleton className="h-8 w-1/4" />
+                <Skeleton className="h-4 w-1/2" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-64 w-full" />
+        </div>
+    );
   }
   
   const isPrivileged = userRole === 'Owner' || userRole === 'Co-Owner';
   const isOwner = userRole === 'Owner';
+  const hasAccess = userRole && ['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole);
 
-  if (!['Lead-Manager', 'Sub-Manager', 'Co-Owner', 'Owner'].includes(userRole)) {
+  if (!hasAccess) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
             <h1 className="text-2xl font-bold">Access Denied</h1>
@@ -1469,7 +1531,7 @@ export default function AdminDashboardPage() {
           {isOwner && <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>}
         </TabsList>
         <TabsContent value="user-management" className="mt-6">
-          <UserManagementTool />
+          {user && userRole && <UserManagementTool currentUserRole={userRole} currentUser={user} />}
         </TabsContent>
         <TabsContent value="sponsors" className="mt-6">
            <SponsorManagementTool />
@@ -1488,6 +1550,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
 
     
