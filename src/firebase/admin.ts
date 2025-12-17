@@ -5,37 +5,40 @@ import * as admin from 'firebase-admin';
 let adminApp: admin.app.App | undefined;
 
 function initializeAdminApp() {
-  // If the app is already initialized, return it.
   if (admin.apps.length > 0) {
-    return admin.app();
+    // If the app is already initialized, return it.
+    // This is important to prevent re-initialization in serverless environments.
+    return admin.apps[0] as admin.app.App;
+  }
+
+  // Vercel and local environments will have these variables set.
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  // The private key from the environment variable needs to have its newlines restored.
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error('CRITICAL: Missing Firebase Admin SDK credentials. Ensure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set in your environment.');
+    throw new Error('Could not initialize Firebase Admin SDK. Missing credentials.');
   }
 
   try {
-    // This is the standard and recommended way.
-    // On Vercel, it automatically uses the GOOGLE_APPLICATION_CREDENTIALS_JSON env var.
-    // Locally, it automatically uses the GOOGLE_APPLICATION_CREDENTIALS env var from .env.
     adminApp = admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+      projectId: projectId, // Explicitly pass projectId here as well
     });
     console.log('Firebase Admin SDK initialized successfully.');
     return adminApp;
   } catch (error: any) {
     console.error('CRITICAL: Firebase admin initialization error:', error.stack);
-    // This will cause server actions to fail loudly if initialization fails.
     throw new Error('Could not initialize Firebase Admin SDK. Check server logs for details.');
   }
 }
 
-// Export a function that returns the initialized app.
-// Server actions will call this to get the admin instance.
-export function getAdminApp() {
-  if (!adminApp) {
-    return initializeAdminApp();
-  }
-  return adminApp;
-}
-
-// Export a pre-initialized instance for convenience.
+// Export a pre-initialized instance for convenience in server actions.
 const adminInstance = initializeAdminApp();
 export default adminInstance;
