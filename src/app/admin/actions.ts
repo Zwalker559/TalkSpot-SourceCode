@@ -29,14 +29,6 @@ export async function createAuditLog(input: CreateAuditLogInput) {
   try {
     const validatedInput = CreateAuditLogSchema.parse(input);
 
-    // If creating a promotion, add it to Firestore here and get the ID
-    if (validatedInput.action === 'promotion.create' && validatedInput.details) {
-        const promoData = { ...validatedInput.details, createdAt: Timestamp.now() };
-        const promoRef = await db.collection('Sponsorships').add(promoData);
-        // We can add the new ID to the details if we want to log it
-        validatedInput.details.newPromotionId = promoRef.id;
-    }
-
     await db.collection('audit_logs').add({
       ...validatedInput,
       timestamp: Timestamp.now(),
@@ -47,7 +39,6 @@ export async function createAuditLog(input: CreateAuditLogInput) {
     return { success: true };
   } catch (error) {
     console.error('Error creating audit log:', error);
-    // In a real app, you'd want more robust error handling/logging
     if (error instanceof z.ZodError) {
       throw new Error(`Invalid audit log input: ${error.message}`);
     }

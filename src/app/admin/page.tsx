@@ -27,7 +27,7 @@ import {
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { SecurityRuleContext } from '@/firebase/errors';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
@@ -702,7 +702,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
         try {
             const isNew = !currentPromo.id;
             
-            const promoDataToSave = {
+            const promoDataToSave: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
                 title: currentPromo.title || '',
                 type: currentPromo.type || 'text',
                 content: currentPromo.content || '',
@@ -717,12 +717,17 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
             };
     
             if (isNew) {
+                promoDataToSave.createdAt = Timestamp.now();
+                const promoRef = await addDoc(collection(firestore, 'Sponsorships'), promoDataToSave);
+                
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.create',
+                    targetInfo: { type: 'promotion', uid: promoRef.id, displayName: promoDataToSave.title },
                     details: promoDataToSave
                 });
+
                 toast({ title: "Promotion Added" });
             } else {
                 const docRef = doc(firestore, 'Sponsorships', currentPromo.id!);
@@ -731,6 +736,8 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
 
                 const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData)) : {};
 
+                await setDoc(docRef, promoDataToSave, { merge: true });
+                
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
@@ -738,8 +745,6 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
                     targetInfo: { type: 'promotion', uid: currentPromo.id, displayName: currentPromo.title },
                     details: { from: serializableOriginalData, to: promoDataToSave }
                 });
-                
-                await setDoc(docRef, promoDataToSave, { merge: true });
                 
                 toast({ title: "Promotion Updated" });
             }
