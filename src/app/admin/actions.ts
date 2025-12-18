@@ -85,8 +85,8 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
     const { actorUid } = ClearAuditLogsSchema.parse(input);
 
     // Security check: Only the Owner can perform this action.
-    const { isPrivileged } = await isPrivilegedUser(actorUid, 'Owner');
-    if (!isPrivileged) {
+    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Owner');
+    if (!isPrivileged || !displayName) {
         throw new Error('Permission Denied: You must be an Owner to clear audit logs.');
     }
 
@@ -106,7 +106,7 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
         
         await createAuditLog({
             actorUid: actorUid,
-            actorDisplayName: (await admin.auth().getUser(actorUid)).displayName || 'Owner',
+            actorDisplayName: displayName,
             action: 'audit.clear',
             targetInfo: { type: 'system' }
         });
@@ -131,7 +131,7 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
  * This is a highly destructive server-side action.
  */
 export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchema>) {
-    const { uidToDelete, actorUid } = DeleteUserFullySchema.parse(input);
+    const { uidToDelete } = DeleteUserFullySchema.parse(input);
     const batch = db.batch();
 
     try {
@@ -140,26 +140,18 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
         // 1. Delete user from Firebase Authentication
         await admin.auth().deleteUser(uidToDelete);
 
-        // 2. Delete user's main document
-        const userDocRef = db.collection('users').doc(uidToDelete);
-        batch.delete(userDocRef);
+        // 2. Delete user's main document, lookup, and recovery info
+        batch.delete(db.collection('users').doc(uidToDelete));
+        batch.delete(db.collection('user_lookups').doc(uidToDelete));
+        batch.delete(db.collection('password_recovery').doc(uidToDelete));
 
-        // 3. Delete user's lookup document
-        const userLookupDocRef = db.collection('user_lookups').doc(uidToDelete);
-        batch.delete(userLookupDocRef);
-        
-        // 4. Delete user's password recovery document
-        const passwordRecoveryDocRef = db.collection('password_recovery').doc(uidToDelete);
-        batch.delete(passwordRecoveryDocRef);
-
-        // 5. Find and delete all conversations the user is a part of
+        // 5. Find and recursively delete all conversations the user is a part of
         const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
         const conversationsSnapshot = await conversationsQuery.get();
         
         if (conversationsSnapshot && !conversationsSnapshot.empty) {
-            const deletePromises: Promise<any>[] = [];
-            conversationsSnapshot.forEach(convoDoc => {
-                deletePromises.push(db.recursiveDelete(convoDoc.ref));
+            const deletePromises = conversationsSnapshot.docs.map(convoDoc => {
+                return db.recursiveDelete(convoDoc.ref);
             });
             await Promise.all(deletePromises);
         }
@@ -193,20 +185,28 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
 }
 
 async function isPrivilegedUser(uid: string, requiredRole: 'Owner' | 'Co-Owner'): Promise<{ isPrivileged: boolean; displayName: string | null; role: string | null }> {
-    const actorDoc = await db.collection('users').doc(uid).get();
-    if (!actorDoc.exists) {
+    try {
+        const actorDoc = await db.collection('users').doc(uid).get();
+        if (!actorDoc.exists) {
+            console.warn(`isPrivilegedUser check failed: User document for UID ${uid} does not exist.`);
+            return { isPrivileged: false, displayName: null, role: null };
+        }
+        const userData = actorDoc.data();
+        const role = userData?.role;
+        const displayName = userData?.displayName || null;
+    
+        let hasPermission = false;
+        if (requiredRole === 'Owner') {
+            hasPermission = role === 'Owner';
+        } else if (requiredRole === 'Co-Owner') {
+            hasPermission = ['Owner', 'Co-Owner'].includes(role);
+        }
+    
+        return { isPrivileged: hasPermission, displayName, role };
+    } catch (error) {
+        console.error(`Error in isPrivilegedUser for UID ${uid}:`, error);
         return { isPrivileged: false, displayName: null, role: null };
     }
-    const role = actorDoc.data()?.role;
-
-    let hasPermission = false;
-    if (requiredRole === 'Owner') {
-        hasPermission = role === 'Owner';
-    } else if (requiredRole === 'Co-Owner') {
-        hasPermission = ['Owner', 'Co-Owner'].includes(role);
-    }
-
-    return { isPrivileged: hasPermission, displayName: actorDoc.data()?.displayName, role };
 }
 
 
@@ -217,7 +217,7 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
     const { actorUid, message } = GlobalNoticeSchema.parse(input);
 
     const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
-    if (!isPrivileged) {
+    if (!isPrivileged || !displayName) {
         throw new Error('Permission Denied: You must be an Owner or Co-Owner to send a global notice.');
     }
 
@@ -232,7 +232,7 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
 
         await createAuditLog({
             actorUid,
-            actorDisplayName: displayName!,
+            actorDisplayName: displayName,
             action: 'notice.send',
             details: { message }
         });
@@ -253,7 +253,7 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
 export async function clearGlobalNotice(input: { actorUid: string }) {
     const { actorUid } = input;
     const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
-    if (!isPrivileged) {
+    if (!isPrivileged || !displayName) {
         throw new Error('Permission Denied: You must be an Owner or Co-Owner to clear the notice.');
     }
 
@@ -263,7 +263,7 @@ export async function clearGlobalNotice(input: { actorUid: string }) {
         
         await createAuditLog({
             actorUid,
-            actorDisplayName: displayName!,
+            actorDisplayName: displayName,
             action: 'notice.clear',
         });
 
@@ -282,8 +282,8 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
     const { actorUid } = RepairOrphanedUsersSchema.parse(input);
 
     // 1. Security Check
-    const { isPrivileged, displayName, role } = await isPrivilegedUser(actorUid, 'Co-Owner');
-    if (!isPrivileged) {
+    const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
+    if (!isPrivileged || !displayName) {
         throw new Error('Permission Denied: You must be an Owner or Co-Owner to perform this action.');
     }
 
@@ -321,7 +321,7 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
         // 6. Log the action
         await createAuditLog({
             actorUid,
-            actorDisplayName: displayName!,
+            actorDisplayName: displayName,
             action: 'system.repair_orphaned_users',
             details: {
                 count: orphanedUids.length,
