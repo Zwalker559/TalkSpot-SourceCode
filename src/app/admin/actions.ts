@@ -135,9 +135,6 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
     const batch = db.batch();
 
     try {
-        const actor = await admin.auth().getUser(actorUid);
-        const userToDelete = await admin.auth().getUser(uidToDelete);
-
         // This action is now logged before calling this function in the UI to ensure it's captured.
 
         // 1. Delete user from Firebase Authentication
@@ -159,13 +156,13 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
         const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
         const conversationsSnapshot = await conversationsQuery.get();
         
-        const deletePromises: Promise<any>[] = [];
-        conversationsSnapshot.forEach(convoDoc => {
-            // Delete all messages in the conversation's subcollection and the conversation doc itself
-            deletePromises.push(
-                db.recursiveDelete(convoDoc.ref)
-            );
-        });
+        if (conversationsSnapshot && !conversationsSnapshot.empty) {
+            const deletePromises: Promise<any>[] = [];
+            conversationsSnapshot.forEach(convoDoc => {
+                deletePromises.push(db.recursiveDelete(convoDoc.ref));
+            });
+            await Promise.all(deletePromises);
+        }
         
         // 6. Find and delete chat requests involving the user
         const requestsFromQuery = db.collection('requests').where('from', '==', uidToDelete);
@@ -176,12 +173,12 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
             requestsToQuery.get(),
         ]);
         
-        requestsFromSnapshot.forEach(doc => batch.delete(doc.ref));
-        requestsToSnapshot.forEach(doc => batch.delete(doc.ref));
-
-
-        // Wait for all recursive deletions to be planned/finished
-        await Promise.all(deletePromises);
+        if (requestsFromSnapshot && !requestsFromSnapshot.empty) {
+            requestsFromSnapshot.forEach(doc => batch.delete(doc.ref));
+        }
+        if (requestsToSnapshot && !requestsToSnapshot.empty) {
+            requestsToSnapshot.forEach(doc => batch.delete(doc.ref));
+        }
         
         // Commit all batched writes
         await batch.commit();
@@ -191,8 +188,6 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
 
     } catch (error: any) {
         console.error(`Critical error during full deletion of user ${uidToDelete}:`, error);
-        // If Auth deletion fails, the rest won't run, which is good.
-        // If Firestore deletion fails, the user is in a partial state.
         throw new Error(`Failed to fully delete user: ${error.message}`);
     }
 }
@@ -342,3 +337,5 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
         throw new Error('An unexpected error occurred during the repair process.');
     }
 }
+
+    
