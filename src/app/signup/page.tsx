@@ -136,11 +136,13 @@ export default function SignupPage() {
     } catch (error: any) {
       const description = getAuthErrorMessage(error.code);
       if (error.code === 'auth/account-exists-with-different-credential') {
-          await signOut(auth); // Important: sign out the new user if they can't be merged
+          // The user already exists, so just sign them out of this flow
+          // and redirect them to the login page to sign in properly.
+          await signOut(auth);
           toast({
             variant: "destructive",
-            title: "Sign-up Failed",
-            description,
+            title: "Account Already Exists",
+            description: "An account with this email already exists. Please log in.",
           });
           router.push('/login');
           return;

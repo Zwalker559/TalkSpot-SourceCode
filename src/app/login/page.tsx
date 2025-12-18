@@ -125,6 +125,7 @@ export default function LoginPage() {
             photoURL: user.photoURL,
             textingId: newTextingId,
             displayNameIsSet: !!user.displayName, // Set to true if Google provides a name
+            textingIdIsSet: false,
             onboardingComplete: false,
             role: 'User',
             status: 'Active',
@@ -165,7 +166,6 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
-        // Now using the error code to show a user-friendly message
         const description = getAuthErrorMessage(error.code);
         toast({
             variant: "destructive",
@@ -187,7 +187,6 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (error: any) {
-       // Now using the error code to show a user-friendly message
        const description = getAuthErrorMessage(error.code);
        toast({
         variant: "destructive",
