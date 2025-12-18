@@ -137,7 +137,13 @@ export default function SignupPage() {
       const description = getAuthErrorMessage(error.code);
       if (error.code === 'auth/account-exists-with-different-credential') {
           await signOut(auth); // Important: sign out the new user if they can't be merged
+          toast({
+            variant: "destructive",
+            title: "Sign-up Failed",
+            description,
+          });
           router.push('/login');
+          return;
       }
       toast({
         variant: "destructive",
