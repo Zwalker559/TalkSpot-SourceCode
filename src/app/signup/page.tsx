@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -44,6 +43,27 @@ function generateTextingId() {
   return `${part1}-${part2}`;
 }
 
+
+// Helper function to get a user-friendly message from a Firebase auth error code
+function getAuthErrorMessage(errorCode: string): string {
+    switch (errorCode) {
+        case 'auth/email-already-in-use':
+            return 'This email address is already in use by another account.';
+        case 'auth/weak-password':
+            return 'The password is too weak. Please use at least 6 characters.';
+        case 'auth/invalid-email':
+            return 'The email address is not valid.';
+        case 'auth/account-exists-with-different-credential':
+             return 'An account with this email already exists. Please sign in with your original method.';
+        case 'auth/operation-not-allowed':
+             return 'This sign-in method is not enabled. Please contact support.';
+        case 'auth/popup-closed-by-user':
+            return 'The sign-in window was closed. Please try again.';
+        default:
+            return 'An unexpected error occurred. Please try again later.';
+    }
+}
+
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,23 +87,6 @@ export default function SignupPage() {
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where("email", "==", user.email));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          await signOut(auth);
-          toast({
-            variant: "destructive",
-            title: "Account Already Exists",
-            description: "An account with this email already exists. Please sign in with your original method.",
-            duration: 9000,
-          });
-          setIsLoading(false);
-          router.push('/login');
-          return;
-        }
-
         const newTextingId = generateTextingId();
         const displayName = user.displayName || user.email?.split('@')[0] || 'New User';
         
@@ -131,13 +134,17 @@ export default function SignupPage() {
       router.push('/dashboard');
 
     } catch (error: any) {
-      if (error.code !== 'auth/account-exists-with-different-credential') {
-          toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: error.message,
-          });
+      const description = getAuthErrorMessage(error.code);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+          await signOut(auth); // Important: sign out the new user if they can't be merged
+          router.push('/login');
       }
+      toast({
+        variant: "destructive",
+        title: "Sign-up Failed",
+        description,
+      });
+
     } finally {
        setIsLoading(false);
     }
@@ -205,10 +212,11 @@ export default function SignupPage() {
 
       router.push('/dashboard');
     } catch (error: any) {
+       const description = getAuthErrorMessage(error.code);
        toast({
         variant: "destructive",
-        title: "Uh oh! Something went wrong.",
-        description: error.message,
+        title: "Sign-up Failed",
+        description,
       });
     } finally {
         setIsLoading(false);
