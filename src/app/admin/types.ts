@@ -1,9 +1,11 @@
+
 import { z } from 'zod';
 
 export const CreateAuditLogSchema = z.object({
   actorUid: z.string(),
   actorDisplayName: z.string(),
   action: z.enum([
+      'user.create',
       'user.edit.display_name',
       'user.edit.display_name_self',
       'user.edit.texting_id',
@@ -42,7 +44,6 @@ export const ClearAuditLogsSchema = z.object({
 
 export const DeleteUserFullySchema = z.object({
   uidToDelete: z.string(),
-  actorUid: z.string(),
 });
 
 export const GlobalNoticeSchema = z.object({

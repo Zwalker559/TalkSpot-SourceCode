@@ -215,7 +215,7 @@ function UserManagementTool({ currentUserRole, currentUser }: { currentUserRole:
         const createLog = (action: any, details: Record<string, any>) => {
              createAuditLog({
                 actorUid: currentUser.uid,
-                actorDisplayName: currentUser.displayName || 'Admin',
+                actorDisplayName: currentUser.displayName,
                 action,
                 targetInfo: { type: 'user', uid: userToEdit.uid, displayName: userToEdit.displayName },
                 details
@@ -306,7 +306,7 @@ function UserManagementTool({ currentUserRole, currentUser }: { currentUserRole:
     });
   
     try {
-        await deleteUserFully({ uidToDelete: userToRemove.uid, actorUid: currentUser.uid });
+        await deleteUserFully({ uidToDelete: userToRemove.uid });
         toast({ title: 'User Fully Deleted', description: `${userToRemove.displayName} has been removed from Auth and Firestore.` });
     } catch (serverError: any) {
         console.error("Error removing user:", serverError)
@@ -596,8 +596,7 @@ function UserManagementTool({ currentUserRole, currentUser }: { currentUserRole:
   );
 }
 
-function SponsorManagementTool() {
-    const { user: currentUser } = useUser();
+function SponsorManagementTool({ currentUser }: { currentUser: any }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -1037,8 +1036,7 @@ function SponsorManagementTool() {
     );
 }
 
-function AuditLogTool() {
-    const { user: currentUser } = useUser();
+function AuditLogTool({ currentUser }: { currentUser: any }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -1064,7 +1062,12 @@ function AuditLogTool() {
 
         const logsQuery = query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
         const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
-            const fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
+            const fetchedLogs: AuditLog[] = [];
+            if (snapshot && !snapshot.empty) {
+                snapshot.docs.forEach(doc => {
+                    fetchedLogs.push({ id: doc.id, ...doc.data() } as AuditLog);
+                });
+            }
             setLogs(fetchedLogs);
             
             if (fetchedLogs.length > 0) {
@@ -1100,17 +1103,8 @@ function AuditLogTool() {
     const handleClearLogs = async () => {
         if (!currentUser) return;
         try {
-            const result = await clearAuditLogs({ actorUid: currentUser.uid });
-             await createAuditLog({
-                actorUid: currentUser.uid,
-                actorDisplayName: currentUser.displayName || 'Owner',
-                action: 'audit.clear',
-                targetInfo: { type: 'system' }
-            });
+            await clearAuditLogs({ actorUid: currentUser.uid });
             toast({ title: 'Success', description: 'Audit logs have been cleared.' });
-            if (result.hasMore) {
-                toast({ title: 'Note', description: 'More than 500 logs existed. Run clear again to remove remaining logs.' });
-            }
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error', description: error.message });
         } finally {
@@ -1192,8 +1186,8 @@ function AuditLogTool() {
                         <CardDescription>Records of all administrative actions taken by staff.</CardDescription>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setDownloadDialogOpen(true)}><FileDown className="mr-2"/> Download</Button>
-                        <Button variant="destructive" onClick={() => setClearConfirmOpen(true)}><Trash2 className="mr-2"/> Clear All Logs</Button>
+                        <Button variant="outline" onClick={() => setDownloadDialogOpen(true)} disabled={logs.length === 0}><FileDown className="mr-2"/> Download</Button>
+                        <Button variant="destructive" onClick={() => setClearConfirmOpen(true)} disabled={logs.length === 0}><Trash2 className="mr-2"/> Clear All Logs</Button>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -1343,8 +1337,7 @@ function AuditLogTool() {
     );
 }
 
-function NoticeManagementTool({ userRole }: { userRole: string | null }) {
-    const { user: currentUser } = useUser();
+function NoticeManagementTool({ userRole, currentUser }: { userRole: string, currentUser: any }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [notice, setNotice] = useState<GlobalNotice | null>(null);
@@ -1407,6 +1400,21 @@ function NoticeManagementTool({ userRole }: { userRole: string | null }) {
             setIsLoading(false);
         }
     };
+
+    if (isLoading) {
+        return (
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-2/3 mt-2" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <Skeleton className="h-10 w-full" />
+                     <Skeleton className="h-10 w-1/4" />
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card>
@@ -1534,21 +1542,19 @@ export default function AdminDashboardPage() {
           {user && userRole && <UserManagementTool currentUserRole={userRole} currentUser={user} />}
         </TabsContent>
         <TabsContent value="sponsors" className="mt-6">
-           <SponsorManagementTool />
+           {user && <SponsorManagementTool currentUser={user} />}
         </TabsContent>
         {isPrivileged && (
           <TabsContent value="notices" className="mt-6">
-            <NoticeManagementTool userRole={userRole} />
+            {user && userRole && <NoticeManagementTool userRole={userRole} currentUser={user} />}
           </TabsContent>
         )}
         {isOwner && (
           <TabsContent value="audit-logs" className="mt-6">
-            <AuditLogTool />
+            {user && <AuditLogTool currentUser={user}/>}
           </TabsContent>
         )}
       </Tabs>
     </div>
   );
 }
-
-    
