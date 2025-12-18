@@ -128,35 +128,47 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
 
 /**
  * Fully deletes a user from Firebase Authentication and all related Firestore data.
- * This is a highly destructive server-side action.
+ * This is a highly destructive server-side action, rewritten to be more resilient.
  */
 export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchema>) {
     const { uidToDelete } = DeleteUserFullySchema.parse(input);
-    const batch = db.batch();
-
+    
     try {
-        // This action is now logged before calling this function in the UI to ensure it's captured.
+        // This action is logged by the caller in the UI to ensure it's captured.
 
         // 1. Delete user from Firebase Authentication
         await admin.auth().deleteUser(uidToDelete);
 
-        // 2. Delete user's main document, lookup, and recovery info
+        const batch = db.batch();
+
+        // 2. Delete main user document, lookup, and recovery info
         batch.delete(db.collection('users').doc(uidToDelete));
         batch.delete(db.collection('user_lookups').doc(uidToDelete));
         batch.delete(db.collection('password_recovery').doc(uidToDelete));
+        
+        // Commit initial deletions
+        await batch.commit();
 
-        // 5. Find and recursively delete all conversations the user is a part of
+        // 3. Find and recursively delete all conversations the user is a part of.
+        // This is done manually to avoid issues with `recursiveDelete`.
         const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
         const conversationsSnapshot = await conversationsQuery.get();
         
         if (conversationsSnapshot && !conversationsSnapshot.empty) {
-            const deletePromises = conversationsSnapshot.docs.map(convoDoc => {
-                return db.recursiveDelete(convoDoc.ref);
-            });
-            await Promise.all(deletePromises);
+            for (const convoDoc of conversationsSnapshot.docs) {
+                const messagesSnapshot = await convoDoc.ref.collection('messages').get();
+                if (messagesSnapshot && !messagesSnapshot.empty) {
+                    const messageBatch = db.batch();
+                    messagesSnapshot.forEach(msgDoc => {
+                        messageBatch.delete(msgDoc.ref);
+                    });
+                    await messageBatch.commit();
+                }
+                await convoDoc.ref.delete(); // Delete the conversation doc after its messages are gone
+            }
         }
         
-        // 6. Find and delete chat requests involving the user
+        // 4. Find and delete chat requests involving the user
         const requestsFromQuery = db.collection('requests').where('from', '==', uidToDelete);
         const requestsToQuery = db.collection('requests').where('to', '==', uidToDelete);
         
@@ -165,16 +177,15 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
             requestsToQuery.get(),
         ]);
         
+        const requestBatch = db.batch();
         if (requestsFromSnapshot && !requestsFromSnapshot.empty) {
-            requestsFromSnapshot.forEach(doc => batch.delete(doc.ref));
+            requestsFromSnapshot.forEach(doc => requestBatch.delete(doc.ref));
         }
         if (requestsToSnapshot && !requestsToSnapshot.empty) {
-            requestsToSnapshot.forEach(doc => batch.delete(doc.ref));
+            requestsToSnapshot.forEach(doc => requestBatch.delete(doc.ref));
         }
+        await requestBatch.commit();
         
-        // Commit all batched writes
-        await batch.commit();
-
         revalidatePath('/admin');
         return { success: true, message: 'User has been fully deleted.' };
 
@@ -337,5 +348,3 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
         throw new Error('An unexpected error occurred during the repair process.');
     }
 }
-
-    
