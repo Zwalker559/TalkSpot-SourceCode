@@ -110,18 +110,18 @@ service cloud.firestore {
        allow delete: if isOwnerOf(resource.data.senderId) || isCoOwnerOrHigher();
     }
     
-    match /Sponsorships/{sponsorshipId} {
+    match /sponsorships/{sponsorshipId} {
       allow read: if true; // Ads are public
       // All managers and above can create/edit ads
       allow write: if isSubManagerOrHigher();
     }
 
-    match /audit_logs/{logId} {
+    match /audits/{auditId} {
       // Only Owners can read or write to audit logs.
       allow read, write: if isOwner();
     }
     
-    match /site_config/{docId} {
+    match /announcements/{docId} {
     	// Allow any authenticated user to read site config like notices
     	allow read: if isAuthenticated();
       // Only Owners and Co-Owners can write to site config
@@ -129,5 +129,4 @@ service cloud.firestore {
     }
   }
 }
-
     

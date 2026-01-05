@@ -29,7 +29,7 @@ export async function createAuditLog(input: CreateAuditLogInput) {
   try {
     const validatedInput = CreateAuditLogSchema.parse(input);
 
-    await db.collection('audit_logs').add({
+    await db.collection('audits').add({
       ...validatedInput,
       timestamp: Timestamp.now(),
     });
@@ -69,7 +69,7 @@ export async function logDisplayNameChange(input: z.infer<typeof DisplayNameChan
 
 
 /**
- * Deletes all documents from the audit_logs collection.
+ * Deletes all documents from the audits collection.
  * This is a highly destructive and privileged action.
  */
 export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>) {
@@ -82,7 +82,7 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
     }
 
     try {
-        const auditLogsCollection = db.collection('audit_logs');
+        const auditLogsCollection = db.collection('audits');
         const snapshot = await auditLogsCollection.limit(500).get(); // Process in batches
         
         if (snapshot.empty) {
@@ -224,7 +224,7 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
     }
 
     try {
-        const noticeRef = db.collection('site_config').doc('global_notice');
+        const noticeRef = db.collection('announcements').doc('global');
         await noticeRef.set({
             message,
             active: true,
@@ -260,7 +260,7 @@ export async function clearGlobalNotice(input: { actorUid: string }) {
     }
 
     try {
-        const noticeRef = db.collection('site_config').doc('global_notice');
+        const noticeRef = db.collection('announcements').doc('global');
         await noticeRef.set({ active: false }, { merge: true });
         
         await createAuditLog({

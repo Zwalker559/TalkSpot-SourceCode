@@ -27,7 +27,7 @@ import {
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { SecurityRuleContext } from '@/firebase/errors';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, getDoc, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, Timestamp, getDoc, query, orderBy, getDocs, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
@@ -86,7 +86,7 @@ type AuditLog = {
     details?: Record<string, any>;
 };
 
-type GlobalNotice = {
+type Announcement = {
     message: string;
     active: boolean;
     updatedAt?: any;
@@ -607,8 +607,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
     const imageContentInputRef = useRef<HTMLInputElement>(null);
     const logoUrlInputRef = useRef<HTMLInputElement>(null);
 
-    const fallbackPromo: Promotion = {
-        id: 'fallback',
+    const fallbackPromo: Omit<Promotion, 'id'> = {
         title: 'Your Ad Here',
         type: 'text',
         content: 'This is the default ad. Edit it in the admin panel.',
@@ -623,7 +622,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
     useEffect(() => {
         if (!firestore) return;
         setLoading(true);
-        const promoColRef = collection(firestore, 'Sponsorships');
+        const promoColRef = collection(firestore, 'sponsorships');
         const unsubscribe = onSnapshot(promoColRef, async (snapshot) => {
             let promoList: Promotion[] = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -633,8 +632,8 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
             const fallbackExists = promoList.some(p => p.id === 'fallback');
             if (!fallbackExists) {
                 try {
-                    await setDoc(doc(firestore, 'Sponsorships', 'fallback'), fallbackPromo);
-                    promoList.push(fallbackPromo);
+                    await setDoc(doc(firestore, 'sponsorships', 'fallback'), fallbackPromo);
+                    promoList.push({ id: 'fallback', ...fallbackPromo });
                 } catch (e) {
                     console.error("Could not create fallback promo:", e);
                 }
@@ -702,7 +701,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
         try {
             const isNew = !currentPromo.id;
             
-            const promoDataToSave: Omit<Promotion, 'id' | 'createdAt'> & { createdAt?: any } = {
+            let promoDataToSave: Omit<Promotion, 'id'> = {
                 title: currentPromo.title || '',
                 type: currentPromo.type || 'text',
                 content: currentPromo.content || '',
@@ -714,11 +713,11 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
                 displayWeight: currentPromo.displayWeight || 0,
                 location: currentPromo.location || 'both',
                 imageFit: currentPromo.imageFit || 'cover',
+                createdAt: currentPromo.createdAt || Timestamp.now(),
             };
     
             if (isNew) {
-                promoDataToSave.createdAt = Timestamp.now();
-                const promoRef = await addDoc(collection(firestore, 'Sponsorships'), promoDataToSave);
+                const promoRef = await addDoc(collection(firestore, 'sponsorships'), promoDataToSave);
                 
                 await createAuditLog({
                     actorUid: currentUser.uid,
@@ -730,11 +729,18 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
 
                 toast({ title: "Promotion Added" });
             } else {
-                const docRef = doc(firestore, 'Sponsorships', currentPromo.id!);
+                const docRef = doc(firestore, 'sponsorships', currentPromo.id!);
                 const originalDocSnap = await getDoc(docRef);
                 const originalData = originalDocSnap.data();
 
-                const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData)) : {};
+                // Make a serializable copy for the audit log
+                const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData, (key, value) => {
+                    // Convert Firestore Timestamps to ISO strings
+                    if (value && typeof value === 'object' && value.seconds !== undefined) {
+                        return new Date(value.seconds * 1000).toISOString();
+                    }
+                    return value;
+                })) : {};
 
                 await setDoc(docRef, promoDataToSave, { merge: true });
                 
@@ -768,7 +774,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
         });
       
         try {
-          await deleteDoc(doc(firestore, 'Sponsorships', promoId));
+          await deleteDoc(doc(firestore, 'sponsorships', promoId));
           toast({ title: 'Promotion Deleted' });
         } catch (error: any) {
           toast({ variant: 'destructive', title: 'Error Deleting Promotion', description: error.message });
@@ -1065,7 +1071,7 @@ function AuditLogTool({ currentUser }: { currentUser: any }) {
         if (!firestore) return;
         setLoading(true);
 
-        const logsQuery = query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
+        const logsQuery = query(collection(firestore, 'audits'), orderBy('timestamp', 'desc'));
         const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
             const fetchedLogs: AuditLog[] = [];
             if (snapshot && !snapshot.empty) {
@@ -1097,7 +1103,7 @@ function AuditLogTool({ currentUser }: { currentUser: any }) {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch audit logs.' });
             setLoading(false);
             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: 'audit_logs',
+                path: 'audits',
                 operation: 'list',
             } satisfies SecurityRuleContext));
         });
@@ -1342,24 +1348,24 @@ function AuditLogTool({ currentUser }: { currentUser: any }) {
     );
 }
 
-function NoticeManagementTool({ userRole, currentUser }: { userRole: string, currentUser: any }) {
+function NoticeManagementTool({ currentUser }: { currentUser: any }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [notice, setNotice] = useState<GlobalNotice | null>(null);
+    const [notice, setNotice] = useState<Announcement | null>(null);
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        if (!firestore || !userRole || !['Owner', 'Co-Owner'].includes(userRole)) {
+        if (!firestore) {
             setIsLoading(false);
             return;
-        };
-        
+        }
+
         setIsLoading(true);
-        const noticeRef = doc(firestore, 'site_config', 'global_notice');
-        const unsubscribe = onSnapshot(noticeRef, (doc) => {
-            if (doc.exists()) {
-                const data = doc.data() as GlobalNotice;
+        const noticeRef = doc(firestore, 'announcements', 'global');
+        const unsubscribe = onSnapshot(noticeRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as Announcement;
                 setNotice(data);
                 if (data.active) {
                     setMessage(data.message);
@@ -1368,16 +1374,15 @@ function NoticeManagementTool({ userRole, currentUser }: { userRole: string, cur
                 }
             }
             setIsLoading(false);
-        },
-        (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: noticeRef.path,
-                operation: 'get',
-            } satisfies SecurityRuleContext));
+        }, (error) => {
+            console.error("Error fetching global notice:", error);
+            // Don't show permission error here unless it's a real issue.
+            // This might fire for users who briefly lose auth.
             setIsLoading(false);
         });
+
         return () => unsubscribe();
-    }, [firestore, userRole]);
+    }, [firestore]);
     
     const handleSendNotice = async () => {
         if (!currentUser) return;
@@ -1551,7 +1556,7 @@ export default function AdminDashboardPage() {
         </TabsContent>
         {isPrivileged && (
           <TabsContent value="notices" className="mt-6">
-            {user && userRole && <NoticeManagementTool userRole={userRole} currentUser={user} />}
+            {user && userRole && <NoticeManagementTool currentUser={user} />}
           </TabsContent>
         )}
         {isOwner && (

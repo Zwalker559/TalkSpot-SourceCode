@@ -64,7 +64,7 @@ const presetQuestions = [
   "In what city were you born?",
 ];
 
-type GlobalNotice = {
+type Announcement = {
     message: string;
     active: boolean;
 };
@@ -78,7 +78,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   const [textingId, setTextingId] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [globalNotice, setGlobalNotice] = useState<GlobalNotice | null>(null);
+  const [globalNotice, setGlobalNotice] = useState<Announcement | null>(null);
 
   // Onboarding states
   const [isDisplayNameModalOpen, setDisplayNameModalOpen] = useState(false);
@@ -103,10 +103,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user && firestore) {
       // Listen for global notice - only for authenticated users
-      const noticeDocRef = doc(firestore, 'site_config', 'global_notice');
+      const noticeDocRef = doc(firestore, 'announcements', 'global');
       const unsubscribeNotice = onSnapshot(noticeDocRef, (docSnap) => {
           if (docSnap.exists() && docSnap.data().active) {
-              setGlobalNotice(docSnap.data() as GlobalNotice);
+              setGlobalNotice(docSnap.data() as Announcement);
           } else {
               setGlobalNotice(null);
           }

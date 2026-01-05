@@ -46,7 +46,7 @@ export default function SidebarPromotions() {
   React.useEffect(() => {
     if (!firestore) return;
 
-    const sponsorshipsColRef = collection(firestore, 'Sponsorships');
+    const sponsorshipsColRef = collection(firestore, 'sponsorships');
     const q = query(sponsorshipsColRef, where('status', '==', 'active'));
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -61,7 +61,7 @@ export default function SidebarPromotions() {
          if (activePromos.length === 0) {
             // No active promotions found, try to get the fallback
             try {
-                const fallbackDoc = await getDoc(doc(firestore, 'Sponsorships', 'fallback'));
+                const fallbackDoc = await getDoc(doc(firestore, 'sponsorships', 'fallback'));
                 if (fallbackDoc.exists()) {
                     const fallbackData = fallbackDoc.data() as Omit<Promotion, 'id'>;
                     // Only use fallback if it's active and for the correct location
@@ -76,7 +76,7 @@ export default function SidebarPromotions() {
 
         setPromotions(activePromos.sort((a, b) => b.displayWeight - a.displayWeight));
         }, (error) => {
-            console.error("Error listening to Sponsorships collection:", error);
+            console.error("Error listening to sponsorships collection:", error);
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: q.path,
                 operation: 'list',

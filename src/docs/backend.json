@@ -284,8 +284,8 @@
             },
             "required": ["actorUid", "actorDisplayName", "action", "timestamp"]
         },
-        "globalNotice": {
-            "title": "Global Notice",
+        "announcement": {
+            "title": "Announcement",
             "description": "A sitewide announcement banner.",
             "type": "object",
             "properties": {
@@ -356,23 +356,23 @@
             },
             "description": "All messages within a specific conversation."
         },
-        "/Sponsorships/{sponsorshipId}": {
+        "/sponsorships/{sponsorshipId}": {
             "schema": {
                 "$ref": "#/entities/promotion"
             },
             "description": "Stores all sponsor promotions and advertisements."
         },
-        "/audit_logs/{logId}": {
+        "/audits/{auditId}": {
             "schema": {
                 "$ref": "#/entities/auditLog"
             },
             "description": "Stores records of administrative actions."
         },
-        "/site_config/global_notice": {
+        "/announcements/global": {
             "schema": {
-                "$ref": "#/entities/globalNotice"
+                "$ref": "#/entities/announcement"
             },
-            "description": "Stores the current global notice for the site."
+            "description": "Stores the current global announcement for the site."
         }
     }
 }
