@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
@@ -40,7 +41,7 @@ type AuthAuditLogInput = z.infer<typeof AuthAuditLogSchema>;
 async function createAuthAuditLog(input: AuthAuditLogInput) {
   try {
     const validatedInput = AuthAuditLogSchema.parse(input);
-    await db.collection('audit_logs').add({
+    await db.collection('audits').add({
       ...validatedInput,
       timestamp: Timestamp.now(),
     });
