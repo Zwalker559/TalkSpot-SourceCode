@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -9,54 +8,63 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-
+    
     function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+      // Use exists() to prevent errors if the user document doesn't exist
+      return getAfter(/databases/$(database)/documents/users/$(userId));
     }
     
-    function getRole(userId) {
-      return getUserData(userId).role;
-    }
-    
-    function getMyRole() {
-      return getRole(request.auth.uid);
+    function getRole(userData) {
+      // Safely access the role from user data
+      return userData.data.role;
     }
     
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // --- Hierarchical Role Checks ---
+    // --- Role-based Permission Checks ---
     
-    function isOwnerRole() {
-      return getMyRole() == 'Owner';
+    function isLeadManager() {
+      let user = getUserData(request.auth.uid);
+      return user != null && getRole(user) == 'Lead-Manager';
     }
     
+    function isSubManager() {
+      let user = getUserData(request.auth.uid);
+      return user != null && getRole(user) == 'Sub-Manager';
+    }
+
+    function isManager() {
+        let user = getUserData(request.auth.uid);
+        return user != null && getRole(user) in ['Lead-Manager', 'Sub-Manager'];
+    }
+
     function isCoOwnerOrHigher() {
-      return getMyRole() in ['Owner', 'Co-Owner'];
+        let user = getUserData(request.auth.uid);
+        return user != null && getRole(user) in ['Owner', 'Co-Owner'];
     }
-    
-    function isLeadManagerOrHigher() {
-       return getMyRole() in ['Owner', 'Co-Owner', 'Lead-Manager'];
+
+     function isOwnerRole() {
+      let user = getUserData(request.auth.uid);
+      return user != null && getRole(user) == 'Owner';
     }
-    
-    function isSubManagerOrHigher() {
-       return getMyRole() in ['Owner', 'Co-Owner', 'Lead-Manager', 'Sub-Manager'];
-    }
-    
+
+    // Check if the requesting user has a higher role than the target user
     function hasHigherRoleThan(targetUserId) {
-      let myRole = getMyRole();
-      let targetRole = getRole(targetUserId);
-      
-      let roles = {
-        'User': 0,
-        'Sub-Manager': 1,
-        'Lead-Manager': 2,
-        'Co-Owner': 3,
-        'Owner': 4
-      };
-      
-      return roles[myRole] > roles[targetRole];
+        let requesterRole = getRole(getUserData(request.auth.uid));
+        let targetRole = getRole(getUserData(targetUserId));
+        
+        let roleHierarchy = {
+            'User': 0,
+            'Sub-Manager': 1,
+            'Lead-Manager': 2,
+            'Co-Owner': 3,
+            'Owner': 4
+        };
+
+        // Ensure both roles exist in the hierarchy to prevent errors
+        return roleHierarchy[requesterRole] > roleHierarchy[targetRole];
     }
     
 
@@ -65,20 +73,23 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId);
+      // A user can update their own profile, or a user with a higher role can update them.
       allow update: if isOwner(userId) || hasHigherRoleThan(userId);
+      // A user with a higher role can delete a user.
       allow delete: if hasHigherRoleThan(userId);
     }
 
     match /user_lookups/{lookupId} {
       allow read: if true;
       allow create: if isOwner(request.resource.data.uid);
-      allow update: if isOwner(resource.data.uid) || isSubManagerOrHigher();
-      allow delete: if isSubManagerOrHigher();
+      allow update: if isOwner(resource.data.uid) || isManager();
+      allow delete: if isManager();
     }
 
     match /password_recovery/{userId} {
       allow read: if true;
       allow create, update: if isOwner(userId);
+      // Only Co-Owners or Owners can delete recovery data, e.g., during a full user deletion
       allow delete: if isCoOwnerOrHigher();
     }
 
@@ -101,17 +112,19 @@ service cloud.firestore {
     
     match /sponsorships/{sponsorshipId} {
       allow read: if true;
-      allow write: if isSubManagerOrHigher();
+      // Allow Sub-Managers and higher to write to sponsorships
+      allow write: if isManager() || isCoOwnerOrHigher();
     }
 
     match /audits/{auditId} {
+      // Only Owner can read or write audit logs
       allow read, write: if isOwnerRole();
     }
     
     match /announcements/{docId} {
     	allow read: if isAuthenticated();
+      // Allow Co-Owners and higher to manage announcements
       allow write: if isCoOwnerOrHigher();
     }
   }
 }
-    
