@@ -297,7 +297,6 @@ function UserManagementTool({ currentUserRole, currentUser }: { currentUserRole:
   const confirmRemoveUser = async () => {
     if (!firestore || !userToRemove || !currentUser || !currentUser.displayName) return;
   
-    // Log the deletion attempt *before* starting the process
     await createAuditLog({
         actorUid: currentUser.uid,
         actorDisplayName: currentUser.displayName,
@@ -733,9 +732,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
                 const originalDocSnap = await getDoc(docRef);
                 const originalData = originalDocSnap.data();
 
-                // Make a serializable copy for the audit log
                 const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData, (key, value) => {
-                    // Convert Firestore Timestamps to ISO strings
                     if (value && typeof value === 'object' && value.seconds !== undefined) {
                         return new Date(value.seconds * 1000).toISOString();
                     }
@@ -1376,8 +1373,6 @@ function NoticeManagementTool({ currentUser }: { currentUser: any }) {
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching global notice:", error);
-            // Don't show permission error here unless it's a real issue.
-            // This might fire for users who briefly lose auth.
             setIsLoading(false);
         });
 

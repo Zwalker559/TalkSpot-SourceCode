@@ -102,7 +102,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user && firestore) {
-      // Listen for global notice - only for authenticated users
       const noticeDocRef = doc(firestore, 'announcements', 'global');
       const unsubscribeNotice = onSnapshot(noticeDocRef, (docSnap) => {
           if (docSnap.exists() && docSnap.data().active) {
@@ -112,7 +111,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
       },
       (error) => {
-        // This will now correctly fire if an unauthenticated user somehow tries to listen
         console.error("Error listening to global notice:", error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: noticeDocRef.path,
@@ -133,7 +131,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           if (needsOnboarding) {
             setShowOnboarding(true);
             const needsDisplayName = !data.displayNameIsSet;
-            const needsSecurityQuestion = !data.securityQuestion && !isGoogleUser;
+            const needsSecurityQuestion = !data.securityQuestionIsSet && !isGoogleUser;
 
             if (needsDisplayName) {
               setNewDisplayName(data.displayName || '');
@@ -143,7 +141,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               setDisplayNameModalOpen(false);
               setSecurityQuestionModalOpen(true);
             } else {
-              // If only Google user is here, mark onboarding as complete.
               if (isGoogleUser) {
                   const userDocRef = doc(firestore, 'users', user.uid);
                   updateDoc(userDocRef, { onboardingComplete: true });
@@ -175,7 +172,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (!user) {
         setUserDataLoaded(true);
         setShowOnboarding(false);
-        setGlobalNotice(null); // Clear notice for logged-out users
+        setGlobalNotice(null);
     }
   }, [user, firestore, isGoogleUser]);
 
@@ -243,7 +240,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const batch = writeBatch(firestore);
 
-      // Save security info to the dedicated collection
       const recoveryDocRef = doc(firestore, 'password_recovery', user.uid);
       batch.update(recoveryDocRef, {
         securityQuestion: finalSecurityQuestion,
@@ -251,11 +247,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         isCaseSensitive: isCaseSensitive,
       });
 
-      // Mark onboarding as complete in the main user document
       const userDocRef = doc(firestore, 'users', user.uid);
       batch.update(userDocRef, {
           onboardingComplete: true,
-          securityQuestion: true, // Mark that a question is now set
+          securityQuestionIsSet: true,
       });
 
       await batch.commit();
@@ -292,7 +287,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     toast({ title: 'Please wait', description: 'Checking your account status...' });
     const userDocRef = doc(firestore, 'users', user.uid);
     try {
-        await updateDoc(userDocRef, { onboardingComplete: false, displayNameIsSet: false, securityQuestion: false });
+        await updateDoc(userDocRef, { onboardingComplete: false, displayNameIsSet: false, securityQuestionIsSet: false });
         toast({ title: 'Onboarding Reset', description: 'Your onboarding process will now restart.' });
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not reset onboarding status.' });

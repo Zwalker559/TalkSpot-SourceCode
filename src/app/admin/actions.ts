@@ -75,7 +75,6 @@ export async function logDisplayNameChange(input: z.infer<typeof DisplayNameChan
 export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>) {
     const { actorUid } = ClearAuditLogsSchema.parse(input);
 
-    // Security check: Only the Owner can perform this action.
     const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Owner');
     if (!isPrivileged || !displayName) {
         throw new Error('Permission Denied: You must be an Owner to clear audit logs.');
@@ -83,7 +82,7 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
 
     try {
         const auditLogsCollection = db.collection('audits');
-        const snapshot = await auditLogsCollection.limit(500).get(); // Process in batches
+        const snapshot = await auditLogsCollection.limit(500).get();
         
         if (snapshot.empty) {
             return { success: true, message: 'No logs to clear.' };
@@ -102,9 +101,6 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
             targetInfo: { type: 'system' }
         });
 
-
-        // If there are more logs, this function can be called again.
-        // For simplicity, we'll just clear up to 500 at a time.
         const remaining = (await auditLogsCollection.limit(1).get()).size > 0;
         
         revalidatePath('/admin');
@@ -125,23 +121,16 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
     const { uidToDelete } = DeleteUserFullySchema.parse(input);
     
     try {
-        // This action is logged by the caller in the UI to ensure it's captured.
-
-        // 1. Delete user from Firebase Authentication
         await admin.auth().deleteUser(uidToDelete);
 
         const batch = db.batch();
 
-        // 2. Delete main user document, lookup, and recovery info
         batch.delete(db.collection('users').doc(uidToDelete));
         batch.delete(db.collection('user_lookups').doc(uidToDelete));
         batch.delete(db.collection('password_recovery').doc(uidToDelete));
         
-        // Commit initial deletions
         await batch.commit();
 
-        // 3. Find and recursively delete all conversations the user is a part of.
-        // This is done manually to avoid issues with `recursiveDelete`.
         const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
         const conversationsSnapshot = await conversationsQuery.get();
         
@@ -155,11 +144,10 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
                     });
                     await messageBatch.commit();
                 }
-                await convoDoc.ref.delete(); // Delete the conversation doc after its messages are gone
+                await convoDoc.ref.delete();
             }
         }
         
-        // 4. Find and delete chat requests involving the user
         const requestsFromQuery = db.collection('requests').where('from', '==', uidToDelete);
         const requestsToQuery = db.collection('requests').where('to', '==', uidToDelete);
         
@@ -239,7 +227,6 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
             details: { message }
         });
 
-        // Revalidate all pages to show the notice immediately
         revalidatePath('/', 'layout');
         return { success: true, message: 'Global notice has been sent.' };
     } catch (error) {
@@ -283,30 +270,25 @@ export async function clearGlobalNotice(input: { actorUid: string }) {
 export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUsersSchema>): Promise<{ deletedCount: number }> {
     const { actorUid } = RepairOrphanedUsersSchema.parse(input);
 
-    // 1. Security Check
     const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
     if (!isPrivileged || !displayName) {
         throw new Error('Permission Denied: You must be an Owner or Co-Owner to perform this action.');
     }
 
     try {
-        // 2. Fetch all Auth UIDs
         const listUsersResult = await admin.auth().listUsers(1000);
         const authUids = new Set(listUsersResult.users.map(userRecord => userRecord.uid));
 
-        // 3. Fetch all Firestore User UIDs
         const usersCollection = db.collection('users');
         const firestoreUsersSnapshot = await usersCollection.get();
         const firestoreUids = new Set(firestoreUsersSnapshot.docs.map(doc => doc.id));
 
-        // 4. Find the difference
         const orphanedUids = Array.from(firestoreUids).filter(uid => !authUids.has(uid));
 
         if (orphanedUids.length === 0) {
             return { deletedCount: 0 };
         }
 
-        // 5. Delete orphaned data in batches
         const batch = db.batch();
         orphanedUids.forEach(uid => {
             const userDocRef = db.collection('users').doc(uid);
@@ -320,7 +302,6 @@ export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUs
 
         await batch.commit();
 
-        // 6. Log the action
         await createAuditLog({
             actorUid,
             actorDisplayName: displayName,

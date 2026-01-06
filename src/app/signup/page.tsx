@@ -54,7 +54,7 @@ function getAuthErrorMessage(errorCode: string): string {
         case 'auth/invalid-email':
             return 'The email address is not valid.';
         case 'auth/account-exists-with-different-credential':
-             return 'An account with this email already exists. Please sign in with your original method.';
+             return 'An account with this email already exists. Please log in instead.';
         case 'auth/operation-not-allowed':
              return 'This sign-in method is not enabled. Please contact support.';
         case 'auth/popup-closed-by-user':
@@ -101,6 +101,7 @@ export default function SignupPage() {
             displayNameIsSet: !!user.displayName,
             textingIdIsSet: false,
             onboardingComplete: false,
+            securityQuestionIsSet: false,
             role: 'User',
             status: 'Active',
             providerData: user.providerData.map(p => ({ providerId: p.providerId })),
@@ -136,8 +137,6 @@ export default function SignupPage() {
     } catch (error: any) {
       const description = getAuthErrorMessage(error.code);
       if (error.code === 'auth/account-exists-with-different-credential') {
-          // The user already exists, so just sign them out of this flow
-          // and redirect them to the login page to sign in properly.
           await signOut(auth);
           toast({
             variant: "destructive",
@@ -189,6 +188,7 @@ export default function SignupPage() {
         displayNameIsSet: false,
         textingIdIsSet: false,
         onboardingComplete: false,
+        securityQuestionIsSet: false,
         role: 'User',
         status: 'Active',
         providerData: [{ providerId: 'password' }],

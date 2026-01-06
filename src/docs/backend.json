@@ -45,6 +45,10 @@
                     "description": "The user's profile visibility in search.",
                     "enum": ["public", "private"]
                 },
+                "displayNameIsSet": { "type": "boolean" },
+                "textingIdIsSet": { "type": "boolean" },
+                "onboardingComplete": { "type": "boolean" },
+                "securityQuestionIsSet": { "type": "boolean" },
                 "chatFilters": {
                     "type": "object",
                     "description": "User preferences for chat content filtration.",

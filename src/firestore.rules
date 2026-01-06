@@ -6,7 +6,7 @@ service cloud.firestore {
     
     // ======== Helper Functions ========
     
-    function isOwnerOf(userId) {
+    function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
@@ -28,7 +28,7 @@ service cloud.firestore {
     
     // --- Hierarchical Role Checks ---
     
-    function isOwner() {
+    function isOwnerRole() {
       return getMyRole() == 'Owner';
     }
     
@@ -44,12 +44,10 @@ service cloud.firestore {
        return getMyRole() in ['Owner', 'Co-Owner', 'Lead-Manager', 'Sub-Manager'];
     }
     
-    // Check if the current user has a higher role than a target user.
     function hasHigherRoleThan(targetUserId) {
       let myRole = getMyRole();
       let targetRole = getRole(targetUserId);
       
-      // Define role hierarchy
       let roles = {
         'User': 0,
         'Sub-Manager': 1,
@@ -65,67 +63,53 @@ service cloud.firestore {
     // ======== Collection Rules ========
 
     match /users/{userId} {
-      // Any authenticated user can read profiles (needed for other rules and app functionality)
       allow read: if isAuthenticated();
-      // Only the user themselves can create their own document
-      allow create: if isOwnerOf(userId);
-      
-      // A user can update their own profile, or an admin can update a user with a lower role.
-      allow update: if isOwnerOf(userId) || hasHigherRoleThan(userId);
-      
-      // An admin can delete a user with a lower role (you can't delete yourself this way).
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || hasHigherRoleThan(userId);
       allow delete: if hasHigherRoleThan(userId);
     }
 
     match /user_lookups/{lookupId} {
-      allow read: if true; // Publicly readable for user searching
-      allow create: if isOwnerOf(request.resource.data.uid);
-      allow update: if isOwnerOf(resource.data.uid) || isSubManagerOrHigher();
-      allow delete: if isSubManagerOrHigher(); // Only managers and above can delete lookup data
+      allow read: if true;
+      allow create: if isOwner(request.resource.data.uid);
+      allow update: if isOwner(resource.data.uid) || isSubManagerOrHigher();
+      allow delete: if isSubManagerOrHigher();
     }
 
     match /password_recovery/{userId} {
-      allow read: if true; // Needed for password reset flow
-      allow create, update: if isOwnerOf(userId);
-      allow delete: if isCoOwnerOrHigher(); // Only high-level admins can remove recovery info during clean-up
+      allow read: if true;
+      allow create, update: if isOwner(userId);
+      allow delete: if isCoOwnerOrHigher();
     }
 
     match /requests/{requestId} {
-      // Only the sender or receiver of a request can interact with it
-      allow read, update, delete: if isOwnerOf(resource.data.to) || isOwnerOf(resource.data.from);
-      allow create: if isOwnerOf(request.resource.data.from);
+      allow read, update, delete: if isOwner(resource.data.to) || isOwner(resource.data.from);
+      allow create: if isOwner(request.resource.data.from);
     }
 
     match /conversations/{conversationId} {
-      // Participants can manage their own conversations. High-level admins can manage any conversation.
       allow read, update: if request.auth.uid in resource.data.participants || isCoOwnerOrHigher();
       allow create: if request.auth.uid in request.resource.data.participants;
-      allow delete: if isCoOwnerOrHigher() || (request.auth.uid in resource.data.participants);
+      allow delete: if (request.auth.uid in resource.data.participants) || isCoOwnerOrHigher();
     }
 
     match /conversations/{conversationId}/messages/{messageId} {
-       // Participants can access messages in their conversations. High-level admins can access any message.
        allow read: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants || isCoOwnerOrHigher();
-       allow create: if isOwnerOf(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
-       // The message sender or a high-level admin can delete a message.
-       allow delete: if isOwnerOf(resource.data.senderId) || isCoOwnerOrHigher();
+       allow create: if isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+       allow delete: if isOwner(resource.data.senderId) || isCoOwnerOrHigher();
     }
     
     match /sponsorships/{sponsorshipId} {
-      allow read: if true; // Ads are public
-      // All managers and above can create/edit ads
+      allow read: if true;
       allow write: if isSubManagerOrHigher();
     }
 
     match /audits/{auditId} {
-      // Only Owners can read or write to audit logs.
-      allow read, write: if isOwner();
+      allow read, write: if isOwnerRole();
     }
     
     match /announcements/{docId} {
-    	// Allow any authenticated user to read site config like notices
     	allow read: if isAuthenticated();
-      // Only Owners and Co-Owners can write to site config
       allow write: if isCoOwnerOrHigher();
     }
   }
