@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -13,7 +12,7 @@ import { doc, setDoc, writeBatch, getDoc, collection, query, where, getDocs } fr
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { Logo } from '@/components/logo';
-import { logUserCreation } from '@/app/auth/actions';
+import { logUserCreation } from '@/app/admin/actions';
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -101,7 +100,7 @@ export default function SignupPage() {
             displayNameIsSet: !!user.displayName,
             textingIdIsSet: false,
             onboardingComplete: false,
-            securityQuestionIsSet: false,
+            securityQuestionIsSet: true, // Google users don't need a security question
             role: 'User',
             status: 'Active',
             providerData: user.providerData.map(p => ({ providerId: p.providerId })),
@@ -137,7 +136,7 @@ export default function SignupPage() {
     } catch (error: any) {
       const description = getAuthErrorMessage(error.code);
       if (error.code === 'auth/account-exists-with-different-credential') {
-          await signOut(auth);
+          await signOut(auth).catch(() => {}); // Sign out the temporary user
           toast({
             variant: "destructive",
             title: "Account Already Exists",

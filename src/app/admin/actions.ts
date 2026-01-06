@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
@@ -13,6 +12,7 @@ import {
   GlobalNoticeSchema,
   RepairOrphanedUsersSchema,
   type CreateAuditLogInput,
+  UserCreationLogSchema,
 } from './types';
 
 // Ensure Firebase Admin is initialized
@@ -43,6 +43,28 @@ export async function createAuditLog(input: CreateAuditLogInput) {
       throw new Error(`Invalid audit log input: ${error.message}`);
     }
     throw new Error('Failed to create audit log entry.');
+  }
+}
+
+
+/**
+ * Logs the creation of a new user.
+ */
+export async function logUserCreation(input: z.infer<typeof UserCreationLogSchema>) {
+  try {
+    const { uid, email, displayName, provider } = UserCreationLogSchema.parse(input);
+    await createAuditLog({
+      actorUid: uid,
+      actorDisplayName: displayName,
+      action: 'user.create',
+      targetInfo: { type: 'user', uid: uid, displayName: displayName },
+      details: { email, provider }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error logging user creation:', error);
+    // Fail silently on the client, but log error on the server
+    return { success: false };
   }
 }
 

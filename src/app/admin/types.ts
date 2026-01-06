@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 export const CreateAuditLogSchema = z.object({
@@ -31,6 +30,13 @@ export const CreateAuditLogSchema = z.object({
 });
 
 export type CreateAuditLogInput = z.infer<typeof CreateAuditLogSchema>;
+
+export const UserCreationLogSchema = z.object({
+  uid: z.string(),
+  email: z.string().email(),
+  displayName: z.string(),
+  provider: z.string(),
+});
 
 export const DisplayNameChangeLogSchema = z.object({
   uid: z.string(),

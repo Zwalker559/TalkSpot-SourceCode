@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -18,7 +17,7 @@ import { useState } from 'react';
 import { Logo } from '@/components/logo';
 import { useAuth, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { logUserCreation } from '@/app/auth/actions';
+import { logUserCreation } from '@/app/admin/actions';
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -127,6 +126,7 @@ export default function LoginPage() {
             displayNameIsSet: !!user.displayName, // Set to true if Google provides a name
             textingIdIsSet: false,
             onboardingComplete: false,
+            securityQuestionIsSet: true, // Google users don't need a security question
             role: 'User',
             status: 'Active',
             providerData: user.providerData.map(p => ({ providerId: p.providerId })),
