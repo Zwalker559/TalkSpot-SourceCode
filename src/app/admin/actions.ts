@@ -4,16 +4,6 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import admin from '@/firebase/admin';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import {
-  CreateAuditLogSchema,
-  DisplayNameChangeLogSchema,
-  ClearAuditLogsSchema,
-  DeleteUserFullySchema,
-  GlobalNoticeSchema,
-  RepairOrphanedUsersSchema,
-  type CreateAuditLogInput,
-  UserCreationLogSchema,
-} from './types';
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
@@ -21,9 +11,104 @@ if (!admin.apps.length) {
 }
 const db = getFirestore();
 
+// -- SCHEMAS --
+export const CreateAuditLogSchema = z.object({
+  actorUid: z.string(),
+  actorDisplayName: z.string(),
+  action: z.enum([
+      'user.create',
+      'user.edit.display_name',
+      'user.edit.display_name_self',
+      'user.edit.texting_id',
+      'user.edit.role',
+      'user.edit.status.suspended',
+      'user.edit.status.activated',
+      'user.edit.password_reset',
+      'user.delete',
+      'promotion.create',
+      'promotion.edit',
+      'promotion.delete',
+      'audit.clear',
+      'notice.send',
+      'notice.clear',
+      'system.repair_orphaned_users'
+  ]),
+  targetInfo: z.object({
+    type: z.string(),
+    uid: z.string().optional(),
+    displayName: z.string().optional(),
+  }).optional(),
+  details: z.record(z.any()).optional(),
+});
+export type CreateAuditLogInput = z.infer<typeof CreateAuditLogSchema>;
+
+export const UserCreationLogSchema = z.object({
+  uid: z.string(),
+  email: z.string().email(),
+  displayName: z.string(),
+  provider: z.string(),
+});
+
+export const DisplayNameChangeLogSchema = z.object({
+  uid: z.string(),
+  oldDisplayName: z.string(),
+  newDisplayName: z.string(),
+});
+
+export const ClearAuditLogsSchema = z.object({
+  actorUid: z.string()
+});
+
+export const DeleteUserFullySchema = z.object({
+  uidToDelete: z.string(),
+});
+export type DeleteUserFullyInput = z.infer<typeof DeleteUserFullySchema>;
+
+export const GlobalNoticeSchema = z.object({
+  actorUid: z.string(),
+  message: z.string().min(1, "Message cannot be empty.").max(500, "Message is too long."),
+});
+export type GlobalNoticeInput = z.infer<typeof GlobalNoticeSchema>;
+
+
+export const RepairOrphanedUsersSchema = z.object({
+  actorUid: z.string(),
+});
+export type RepairOrphanedUsersInput = z.infer<typeof RepairOrphanedUsersSchema>;
+
+
+// -- HELPER FUNCTIONS --
+
+async function isPrivilegedUser(uid: string, requiredRole: 'Owner' | 'Co-Owner'): Promise<{ isPrivileged: boolean; displayName: string | null; role: string | null }> {
+    try {
+        const actorDoc = await db.collection('users').doc(uid).get();
+        if (!actorDoc.exists) {
+            console.warn(`isPrivilegedUser check failed: User document for UID ${uid} does not exist.`);
+            return { isPrivileged: false, displayName: null, role: null };
+        }
+        const userData = actorDoc.data();
+        const role = userData?.role;
+        const displayName = userData?.displayName || null;
+    
+        let hasPermission = false;
+        if (requiredRole === 'Owner') {
+            hasPermission = role === 'Owner';
+        } else if (requiredRole === 'Co-Owner') {
+            hasPermission = ['Owner', 'Co-Owner'].includes(role);
+        }
+    
+        return { isPrivileged: hasPermission, displayName, role };
+    } catch (error) {
+        console.error(`Error in isPrivilegedUser for UID ${uid}:`, error);
+        return { isPrivileged: false, displayName: null, role: null };
+    }
+}
+
+
+// -- SERVER ACTIONS --
+
 /**
  * Creates a new audit log entry in Firestore.
- * This is a secure server-side action.
  */
 export async function createAuditLog(input: CreateAuditLogInput) {
   try {
@@ -34,7 +119,6 @@ export async function createAuditLog(input: CreateAuditLogInput) {
       timestamp: Timestamp.now(),
     });
 
-    // Revalidate the admin page to show the new log instantly
     revalidatePath('/admin');
     return { success: true };
   } catch (error) {
@@ -63,7 +147,6 @@ export async function logUserCreation(input: z.infer<typeof UserCreationLogSchem
     return { success: true };
   } catch (error) {
     console.error('Error logging user creation:', error);
-    // Fail silently on the client, but log error on the server
     return { success: false };
   }
 }
@@ -92,7 +175,6 @@ export async function logDisplayNameChange(input: z.infer<typeof DisplayNameChan
 
 /**
  * Deletes all documents from the audits collection.
- * This is a highly destructive and privileged action.
  */
 export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>) {
     const { actorUid } = ClearAuditLogsSchema.parse(input);
@@ -137,7 +219,6 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
 
 /**
  * Fully deletes a user from Firebase Authentication and all related Firestore data.
- * This is a highly destructive server-side action, rewritten to be more resilient.
  */
 export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchema>) {
     const { uidToDelete } = DeleteUserFullySchema.parse(input);
@@ -196,36 +277,10 @@ export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchem
     }
 }
 
-async function isPrivilegedUser(uid: string, requiredRole: 'Owner' | 'Co-Owner'): Promise<{ isPrivileged: boolean; displayName: string | null; role: string | null }> {
-    try {
-        const actorDoc = await db.collection('users').doc(uid).get();
-        if (!actorDoc.exists) {
-            console.warn(`isPrivilegedUser check failed: User document for UID ${uid} does not exist.`);
-            return { isPrivileged: false, displayName: null, role: null };
-        }
-        const userData = actorDoc.data();
-        const role = userData?.role;
-        const displayName = userData?.displayName || null;
-    
-        let hasPermission = false;
-        if (requiredRole === 'Owner') {
-            hasPermission = role === 'Owner';
-        } else if (requiredRole === 'Co-Owner') {
-            hasPermission = ['Owner', 'Co-Owner'].includes(role);
-        }
-    
-        return { isPrivileged: hasPermission, displayName, role };
-    } catch (error) {
-        console.error(`Error in isPrivilegedUser for UID ${uid}:`, error);
-        return { isPrivileged: false, displayName: null, role: null };
-    }
-}
-
-
 /**
- * Sends or updates the global notice. Only callable by an Owner or Co-Owner.
+ * Sends or updates the global notice.
  */
-export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>) {
+export async function sendGlobalNotice(input: GlobalNoticeInput) {
     const { actorUid, message } = GlobalNoticeSchema.parse(input);
 
     const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
@@ -259,7 +314,7 @@ export async function sendGlobalNotice(input: z.infer<typeof GlobalNoticeSchema>
 
 
 /**
- * Clears the global notice. Only callable by an Owner or Co-Owner.
+ * Clears the global notice.
  */
 export async function clearGlobalNotice(input: { actorUid: string }) {
     const { actorUid } = input;
@@ -289,7 +344,7 @@ export async function clearGlobalNotice(input: { actorUid: string }) {
 /**
  * Finds and removes orphaned Firestore user data for users that no longer exist in Auth.
  */
-export async function repairOrphanedUsers(input: z.infer<typeof RepairOrphanedUsersSchema>): Promise<{ deletedCount: number }> {
+export async function repairOrphanedUsers(input: RepairOrphanedUsersInput): Promise<{ deletedCount: number }> {
     const { actorUid } = RepairOrphanedUsersSchema.parse(input);
 
     const { isPrivileged, displayName } = await isPrivilegedUser(actorUid, 'Co-Owner');
