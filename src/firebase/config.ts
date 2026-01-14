@@ -6,23 +6,23 @@
 
 export const firebaseConfig = {
   // Found in your Firebase project settings under "API Key"
-  apiKey: "YOUR_API_KEY_HERE",
+  apiKey: "AIzaSyBhbqKeMcYWXQAwkD7va2nxwlhfAljFjWc",
 
   // Found in your Firebase project settings under "Auth domain"
-  authDomain: "YOUR_AUTH_DOMAIN_HERE",
+  authDomain: "ts-v3-178ca.firebaseapp.com",
 
   // Found in your Firebase project settings under "Project ID"
-  projectId: "YOUR_PROJECT_ID_HERE",
+  projectId: "ts-v3-178ca",
 
   // Found in your Firebase project settings under "Storage bucket"
-  storageBucket: "YOUR_STORAGE_BUCKET_HERE",
+  storageBucket: "ts-v3-178ca.firebasestorage.app",
 
   // Found in your Firebase project settings under "Messaging sender ID"
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+  messagingSenderId: "777806440428",
 
   // Found in your Firebase project settings under "App ID"
-  appId: "YOUR_APP_ID_HERE",
+  appId: "1:777806440428:web:798832102262e41a6942c9",
   
   // This is often optional, but good to have. Found in your Firebase project settings under "Measurement ID".
-  measurementId: "YOUR_MEASUREMENT_ID_HERE"
+  measurementId: "G-0WLC7N75K9"
 };
