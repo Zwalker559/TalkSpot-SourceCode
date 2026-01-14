@@ -15,7 +15,7 @@ export const firebaseConfig = {
   projectId: "ts-v3-178ca",
 
   // Found in your Firebase project settings under "Storage bucket"
-  storageBucket: "ts-v3-178ca.firebasestorage.app",
+  storageBucket: "ts-v3-178ca.appspot.com",
 
   // Found in your Firebase project settings under "Messaging sender ID"
   messagingSenderId: "777806440428",
