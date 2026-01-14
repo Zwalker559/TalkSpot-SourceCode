@@ -1,4 +1,3 @@
-
 'use client';
 
 import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench, Info } from 'lucide-react';
@@ -35,7 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { resetPassword } from '@/ai/flows/reset-password-flow';
+import { resetPassword } from '@/app/auth/actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';

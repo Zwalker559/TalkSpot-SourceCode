@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -12,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Logo } from '@/components/logo';
-import { resetPassword } from '@/ai/flows/reset-password-flow';
+import { resetPassword } from '@/app/auth/actions';
 
 type RecoveryData = {
   uid: string;
