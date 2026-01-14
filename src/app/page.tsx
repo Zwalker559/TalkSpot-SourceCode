@@ -53,7 +53,6 @@ export default function LandingPage() {
                 width={1200}
                 height={600}
                 className="w-full h-auto object-cover"
-                data-ai-hint={heroImage.imageHint}
                 priority
               />
             )}
