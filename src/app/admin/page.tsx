@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, Edit, Trash2, PlusCircle, Upload, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
@@ -700,7 +701,8 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
         try {
             const isNew = !currentPromo.id;
             
-            let promoDataToSave: Omit<Promotion, 'id'> = {
+            // This object contains the Firestore Timestamp, which is correct for writing to the DB
+            let promoDataForDb: Omit<Promotion, 'id'> = {
                 title: currentPromo.title || '',
                 type: currentPromo.type || 'text',
                 content: currentPromo.content || '',
@@ -712,41 +714,49 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
                 displayWeight: currentPromo.displayWeight || 0,
                 location: currentPromo.location || 'both',
                 imageFit: currentPromo.imageFit || 'cover',
-                createdAt: currentPromo.createdAt || Timestamp.now(),
+                // If it's a new promo, we create a new timestamp. Otherwise, we preserve the old one.
+                createdAt: currentPromo.createdAt || Timestamp.now(), 
             };
     
+            // This is a helper function to create a fully serializable version of an object
+            // by converting Firestore Timestamps to ISO date strings.
+            const toSerializableObject = (data: any) => {
+                if (!data) return {};
+                return JSON.parse(JSON.stringify(data, (key, value) => {
+                    if (value && typeof value === 'object' && value.seconds !== undefined) {
+                        return new Date(value.seconds * 1000).toISOString();
+                    }
+                    return value;
+                }));
+            }
+    
             if (isNew) {
-                const promoRef = await addDoc(collection(firestore, 'sponsorships'), promoDataToSave);
+                const promoRef = await addDoc(collection(firestore, 'sponsorships'), promoDataForDb);
                 
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.create',
-                    targetInfo: { type: 'promotion', uid: promoRef.id, displayName: promoDataToSave.title },
-                    details: promoDataToSave
+                    targetInfo: { type: 'promotion', uid: promoRef.id, displayName: promoDataForDb.title },
+                    details: toSerializableObject(promoDataForDb) // Pass the serializable version to the server action
                 });
-
+    
                 toast({ title: "Promotion Added" });
             } else {
                 const docRef = doc(firestore, 'sponsorships', currentPromo.id!);
                 const originalDocSnap = await getDoc(docRef);
-                const originalData = originalDocSnap.data();
-
-                const serializableOriginalData = originalData ? JSON.parse(JSON.stringify(originalData, (key, value) => {
-                    if (value && typeof value === 'object' && value.seconds !== undefined) {
-                        return new Date(value.seconds * 1000).toISOString();
-                    }
-                    return value;
-                })) : {};
-
-                await setDoc(docRef, promoDataToSave, { merge: true });
+                
+                await setDoc(docRef, promoDataForDb, { merge: true });
                 
                 await createAuditLog({
                     actorUid: currentUser.uid,
                     actorDisplayName: currentUser.displayName,
                     action: 'promotion.edit',
                     targetInfo: { type: 'promotion', uid: currentPromo.id, displayName: currentPromo.title },
-                    details: { from: serializableOriginalData, to: promoDataToSave }
+                    details: { 
+                        from: toSerializableObject(originalDocSnap.data()), // Serialize the original data
+                        to: toSerializableObject(promoDataForDb) // Serialize the new data
+                    }
                 });
                 
                 toast({ title: "Promotion Updated" });
@@ -1563,3 +1573,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
