@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -9,9 +10,10 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // Use get() for both read and write operations for simplicity and correctness.
+    // get() reads the document's state before the current operation.
     function getUserData(userId) {
-      // Use exists() to prevent errors if the user document doesn't exist
-      return getAfter(/databases/$(database)/documents/users/$(userId));
+      return get(/databases/$(database)/documents/users/$(userId));
     }
     
     function getRole(userData) {
@@ -63,7 +65,15 @@ service cloud.firestore {
             'Owner': 4
         };
 
-        // Ensure both roles exist in the hierarchy to prevent errors
+        // If requester role is null (e.g., user doc not found), they have no power.
+        if (!(requesterRole in roleHierarchy)) {
+          return false;
+        }
+        // If target role is null, consider it the lowest role, so any valid requester has a higher role.
+        if (!(targetRole in roleHierarchy)) {
+          return true;
+        }
+        
         return roleHierarchy[requesterRole] > roleHierarchy[targetRole];
     }
     
@@ -94,11 +104,15 @@ service cloud.firestore {
     }
 
     match /requests/{requestId} {
+      // Allow reading/updating/deleting a specific request if you are the sender or receiver.
+      // List operations rely on client queries to filter by 'from' or 'to'.
       allow read, update, delete: if isOwner(resource.data.to) || isOwner(resource.data.from);
       allow create: if isOwner(request.resource.data.from);
     }
 
     match /conversations/{conversationId} {
+      // Allow reading/updating a specific conversation if you are a participant or a high-level admin.
+      // List operations rely on client queries using 'array-contains'.
       allow read, update: if request.auth.uid in resource.data.participants || isCoOwnerOrHigher();
       allow create: if request.auth.uid in request.resource.data.participants;
       allow delete: if (request.auth.uid in resource.data.participants) || isCoOwnerOrHigher();
