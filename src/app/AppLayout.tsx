@@ -155,7 +155,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             setSecurityQuestionModalOpen(false);
           }
         } else {
-            setUserDataLoaded(false); 
+            // Document doesn't exist, which can happen right after signup.
+            // We set loaded to true so the app doesn't hang, and we wait for the doc to be created.
+            setUserDataLoaded(true);
         }
       }, (error) => {
           console.error("Error listening to user document:", error);
