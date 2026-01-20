@@ -222,52 +222,50 @@ export async function clearAuditLogs(input: z.infer<typeof ClearAuditLogsSchema>
  */
 export async function deleteUserFully(input: z.infer<typeof DeleteUserFullySchema>) {
     const { uidToDelete } = DeleteUserFullySchema.parse(input);
-    
+
+    const BATCH_SIZE = 499; // Firestore batch limit is 500 operations
+
     try {
+        // 1. Delete user from Firebase Authentication first. If this fails, the process stops.
         await admin.auth().deleteUser(uidToDelete);
 
-        const batch = db.batch();
+        // 2. Collect all document references to delete from Firestore.
+        const refsToDelete = [];
 
-        batch.delete(db.collection('users').doc(uidToDelete));
-        batch.delete(db.collection('user_lookups').doc(uidToDelete));
-        batch.delete(db.collection('password_recovery').doc(uidToDelete));
-        
-        await batch.commit();
+        // Add top-level user documents.
+        refsToDelete.push(db.collection('users').doc(uidToDelete));
+        refsToDelete.push(db.collection('user_lookups').doc(uidToDelete));
+        refsToDelete.push(db.collection('password_recovery').doc(uidToDelete));
 
+        // Collect conversations and all their messages.
         const conversationsQuery = db.collection('conversations').where('participants', 'array-contains', uidToDelete);
         const conversationsSnapshot = await conversationsQuery.get();
-        
-        if (conversationsSnapshot && !conversationsSnapshot.empty) {
-            for (const convoDoc of conversationsSnapshot.docs) {
-                const messagesSnapshot = await convoDoc.ref.collection('messages').get();
-                if (messagesSnapshot && !messagesSnapshot.empty) {
-                    const messageBatch = db.batch();
-                    messagesSnapshot.forEach(msgDoc => {
-                        messageBatch.delete(msgDoc.ref);
-                    });
-                    await messageBatch.commit();
-                }
-                await convoDoc.ref.delete();
-            }
+        for (const convoDoc of conversationsSnapshot.docs) {
+            refsToDelete.push(convoDoc.ref);
+            const messagesSnapshot = await convoDoc.ref.collection('messages').get();
+            messagesSnapshot.forEach(msgDoc => refsToDelete.push(msgDoc.ref));
         }
-        
+
+        // Collect chat requests involving the user.
         const requestsFromQuery = db.collection('requests').where('from', '==', uidToDelete);
         const requestsToQuery = db.collection('requests').where('to', '==', uidToDelete);
-        
         const [requestsFromSnapshot, requestsToSnapshot] = await Promise.all([
             requestsFromQuery.get(),
             requestsToQuery.get(),
         ]);
+        requestsFromSnapshot.forEach(doc => refsToDelete.push(doc.ref));
+        requestsToSnapshot.forEach(doc => refsToDelete.push(doc.ref));
         
-        const requestBatch = db.batch();
-        if (requestsFromSnapshot && !requestsFromSnapshot.empty) {
-            requestsFromSnapshot.forEach(doc => requestBatch.delete(doc.ref));
+        // 3. Process all deletions in batches to avoid Firestore limits.
+        for (let i = 0; i < refsToDelete.length; i += BATCH_SIZE) {
+            const batch = db.batch();
+            const chunk = refsToDelete.slice(i, i + BATCH_SIZE);
+            chunk.forEach(ref => {
+                if(ref) batch.delete(ref);
+            });
+            await batch.commit();
         }
-        if (requestsToSnapshot && !requestsToSnapshot.empty) {
-            requestsToSnapshot.forEach(doc => requestBatch.delete(doc.ref));
-        }
-        await requestBatch.commit();
-        
+
         revalidatePath('/admin');
         return { success: true, message: 'User has been fully deleted.' };
 

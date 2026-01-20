@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, UserX, Edit, Trash2, PlusCircle, Image as ImageIcon, FileText, Link as LinkIcon, MessageSquare, Upload, Maximize, Lock, Building2, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench, Info } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, Upload, Eye, Star, FileDown, ShieldCheck, History, Send, Wrench } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -23,10 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { SecurityRuleContext } from '@/firebase/errors';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, Timestamp, getDoc, query, orderBy, getDocs, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, setDoc, addDoc, Timestamp, getDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
@@ -131,7 +131,8 @@ function UserManagementTool({ currentUserRole, currentUser }: { currentUserRole:
     setLoading(true);
     
     const usersColRef = collection(firestore, 'users');
-    const unsubscribe = onSnapshot(usersColRef, (snapshot) => {
+    const usersQuery = query(usersColRef, orderBy('displayName', 'asc'));
+    const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
       const userList: UserProfile[] = [];
       snapshot.forEach(doc => {
         const data = doc.data();
@@ -1000,7 +1001,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
                                         <Card className="overflow-hidden bg-muted/50 mt-1">
                                             <CardContent className="flex items-center justify-center p-0 aspect-[16/2] relative">
                                                 {currentPromo.type === 'image' ? (
-                                                    currentPromo.content ? <Image src={currentPromo.content} alt="Header Preview" fill style={{ objectFit: currentPromo.imageFit || 'cover' }} /> : <div className="flex items-center text-muted-foreground"><ImageIcon className="mr-2"/>No Image</div>
+                                                    currentPromo.content ? <Image src={currentPromo.content} alt="Header Preview" fill style={{ objectFit: currentPromo.imageFit || 'cover' }} /> : <div className="flex items-center text-muted-foreground"><PlusCircle className="mr-2"/>No Image</div>
                                                 ) : (
                                                     <div className="text-center p-2 flex flex-col items-center justify-center gap-1">
                                                         {currentPromo.logoUrl && <Image src={currentPromo.logoUrl} alt="logo" width={24} height={24} className="rounded-sm object-contain" />}
@@ -1017,7 +1018,7 @@ function SponsorManagementTool({ currentUser }: { currentUser: any }) {
                                         <Card className="overflow-hidden bg-muted/50 mt-1 w-40 mx-auto">
                                             <CardContent className="flex items-center justify-center p-0 aspect-square relative">
                                                 {currentPromo.type === 'image' ? (
-                                                     currentPromo.content ? <Image src={currentPromo.content} alt="Sidebar Preview" fill style={{ objectFit: currentPromo.imageFit || 'cover' }} /> : <div className="flex items-center text-muted-foreground"><ImageIcon className="mr-2"/>No Image</div>
+                                                     currentPromo.content ? <Image src={currentPromo.content} alt="Sidebar Preview" fill style={{ objectFit: currentPromo.imageFit || 'cover' }} /> : <div className="flex items-center text-muted-foreground"><PlusCircle className="mr-2"/>No Image</div>
                                                 ) : (
                                                     <div className="text-center p-2 flex flex-col items-center justify-center gap-1">
                                                         {currentPromo.logoUrl && <Image src={currentPromo.logoUrl} alt="logo" width={32} height={32} className="rounded-sm object-contain mb-1" />}
@@ -1207,7 +1208,7 @@ function AuditLogTool({ currentUser }: { currentUser: any }) {
                                     <AccordionTrigger>
                                         <div className="flex items-center gap-4 text-sm w-full">
                                             <div className="flex items-center gap-2 w-1/4">
-                                                <ShieldCheck className="h-4 w-4 text-muted-foreground"/>
+                                                <History className="h-4 w-4 text-muted-foreground"/>
                                                 <span className="font-semibold">{log.actorDisplayName}</span>
                                             </div>
                                              <div className="w-2/4">
